@@ -1,5 +1,3 @@
-"use client";
-
 import { motion, useReducedMotion } from "motion/react";
 import type { ComponentProps, ReactNode, Ref } from "react";
 import { EASE_OUT } from "@/lib/ease";

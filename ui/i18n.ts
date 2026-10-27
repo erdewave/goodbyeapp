@@ -2,7 +2,7 @@
 const num = (n: number) => n.toLocaleString(locale);
 const pl = (n: number, word: string) => `${num(n)} ${n === 1 ? word : word + 's'}`;
 const tr = {
-  nav: { apps: 'Uygulamalar', files: 'Büyük dosyalar', settings: 'Ayarlar' }, mainMenu: 'Ana menü', search: 'Ara', searchHint: 'Ara · Ctrl K',
+  nav: { apps: 'Uygulamalar', files: 'Dosyalar', settings: 'Ayarlar' }, mainMenu: 'Ana menü', search: 'Ara', searchHint: 'Ara · Ctrl K',
   steps: ['Kayıt defteri', 'Disk'], stepsLabel: 'Adımlar',
   phase: { queued: 'Sırada bekliyor', uninstalling: 'Kaldırıcı çalışıyor…', scanning: 'Kalıntılar taranıyor…', cleaning: 'Kalıntılar temizleniyor…', failed: 'Kaldırılamadı', done: 'Kaldırıldı' },
   found: (n: number) => `${num(n)} kalıntı bulundu`, cleanedTail: (n: number) => ` · ${num(n)} öğe temizlendi`, leftTail: (n: number) => ` · ${num(n)} öğe kaldı`, restoreTail: ' · Geri yükleme noktası oluşturuldu', review: 'İncele',
@@ -19,15 +19,15 @@ const tr = {
   removed: (name: string) => `${name} kaldırıldı`, cleaned: (n: number) => `${num(n)} öğe temizlendi.`, notCleaned: (n: number) => ` ${num(n)} öğe temizlenemedi.`,
   restoreCreated: 'Sistem geri yükleme noktası oluşturuldu.', restoreSkipped: 'Son 24 saatte oluşturulmuş bir geri yükleme noktası olduğu için Windows yenisini oluşturmadı.',
   next: 'İleri', back: 'Geri', clean: 'Seçilenleri temizle', cleaning: 'Temizleniyor', cleanedButton: 'Temizlendi', retry: 'Tekrar dene', elevate: 'Yönetici olarak dene', trying: 'Deneniyor', done: 'Tamamlandı', close: 'Kapat',
-  scanningFiles: (n: number) => `Taranıyor · ${num(n)} dosya`, scannedFiles: (drives: number, n: number) => `${num(drives)} disk · ${num(n)} dosya tarandı`, notScanned: 'Diskler henüz taranmadı',
   stop: 'Durdur', rescan: 'Yeniden tara', scan: 'Diskleri tara', waiting: 'Bekliyor', driveDone: (big: number, n: number) => `${num(big)} büyük dosya · ${num(n)} dosya tarandı`,
-  fastScanHint: ' · Hızlı tarama için yönetici olarak çalıştırın', scanningAt: (at: string) => `Taranıyor · ${at}`, reveal: 'Klasörde göster', revealFile: (name: string) => `${name} klasörde göster`, localDisk: 'Yerel Disk', systemDisk: 'Sistem diski',
+  fastScanHint: ' · Hızlı tarama için yönetici olarak çalıştırın', scanningAt: (at: string) => `Taranıyor · ${at}`, localDisk: 'Yerel Disk', systemDisk: 'Sistem diski', diskMap: 'Disk haritası',
+  chartTiles: 'Harita kutuları', revealExplorer: "Dosya Gezgini'nde göster", fileActions: 'Dosya işlemleri', openFile: 'Aç', toTop: 'Yukarı çık',chartLegend: 'Harita açıklaması', chartEmpty: 'Gösterilecek veri yok', ofTotal: (p: string) => `Toplamın %${p} kadarı`,
   titlebar: 'Pencere başlık çubuğu', windowControls: 'Pencere kontrolleri', minimizeWindow: 'Pencereyi küçült', restoreDown: 'Önceki boyuta dön', maximize: 'Büyüt', maximizeWindow: 'Pencereyi büyüt', closeWindow: 'Pencereyi kapat',
   confirmed: 'Onaylandı', kept: 'Vazgeçildi', confirmUninstall: 'Kaldırmayı onayla', cancel: 'Vazgeç', logo: (name: string) => `${name} logosu`, noIcon: 'Uygulama simgesi bulunamadı',
-  expand: 'Genişlet', dismiss: 'Kapat', closePalette: 'Komut paletini kapat', palette: 'Komut paleti', commands: 'Komutlar', theme: 'Tema',
+  expand: 'Genişlet', dismiss: 'Kapat', closePalette: 'Komut paletini kapat', recentSearches: 'Son aramalar', clearHistory: 'Geçmişi temizle', categories: 'Kategoriler', palette: 'Komut paleti', commands: 'Komutlar', theme: 'Tema',
 };
 const en: typeof tr = {
-  nav: { apps: 'Apps', files: 'Large files', settings: 'Settings' }, mainMenu: 'Main menu', search: 'Search', searchHint: 'Search · Ctrl K',
+  nav: { apps: 'Apps', files: 'Files', settings: 'Settings' }, mainMenu: 'Main menu', search: 'Search', searchHint: 'Search · Ctrl K',
   steps: ['Registry', 'Disk'], stepsLabel: 'Steps',
   phase: { queued: 'Queued', uninstalling: 'Uninstaller running…', scanning: 'Scanning for leftovers…', cleaning: 'Cleaning leftovers…', failed: 'Could not uninstall', done: 'Uninstalled' },
   found: n => `${pl(n, 'leftover')} found`, cleanedTail: n => ` · ${pl(n, 'item')} cleaned`, leftTail: n => ` · ${pl(n, 'item')} left`, restoreTail: ' · Restore point created', review: 'Review',
@@ -44,12 +44,12 @@ const en: typeof tr = {
   removed: name => `${name} uninstalled`, cleaned: n => `${pl(n, 'item')} cleaned.`, notCleaned: n => ` ${pl(n, 'item')} could not be cleaned.`,
   restoreCreated: 'System restore point created.', restoreSkipped: 'Windows did not create a new restore point because one was created in the last 24 hours.',
   next: 'Next', back: 'Back', clean: 'Clean selected', cleaning: 'Cleaning', cleanedButton: 'Cleaned', retry: 'Try again', elevate: 'Try as administrator', trying: 'Trying', done: 'Done', close: 'Close',
-  scanningFiles: n => `Scanning · ${pl(n, 'file')}`, scannedFiles: (drives, n) => `${pl(drives, 'drive')} · ${pl(n, 'file')} scanned`, notScanned: 'Drives not scanned yet',
   stop: 'Stop', rescan: 'Scan again', scan: 'Scan drives', waiting: 'Waiting', driveDone: (big, n) => `${pl(big, 'large file')} · ${pl(n, 'file')} scanned`,
-  fastScanHint: ' · Run as administrator for a fast scan', scanningAt: at => `Scanning · ${at}`, reveal: 'Show in folder', revealFile: name => `Show ${name} in folder`, localDisk: 'Local Disk', systemDisk: 'System disk',
+  fastScanHint: ' · Run as administrator for a fast scan', scanningAt: at => `Scanning · ${at}`, localDisk: 'Local Disk', systemDisk: 'System disk', diskMap: 'Disk map',
+  chartTiles: 'Map tiles', revealExplorer: 'Show in File Explorer', fileActions: 'File actions', openFile: 'Open', toTop: 'Back to top',chartLegend: 'Map legend', chartEmpty: 'No data to show', ofTotal: p => `${p}% of total`,
   titlebar: 'Window title bar', windowControls: 'Window controls', minimizeWindow: 'Minimize window', restoreDown: 'Restore down', maximize: 'Maximize', maximizeWindow: 'Maximize window', closeWindow: 'Close window',
   confirmed: 'Confirmed', kept: 'Cancelled', confirmUninstall: 'Confirm uninstall', cancel: 'Cancel', logo: name => `${name} logo`, noIcon: 'App icon not found',
-  expand: 'Expand', dismiss: 'Dismiss', closePalette: 'Close command palette', palette: 'Command palette', commands: 'Commands', theme: 'Theme',
+  expand: 'Expand', dismiss: 'Dismiss', closePalette: 'Close command palette', recentSearches: 'Recent searches', clearHistory: 'Clear history', categories: 'Categories', palette: 'Command palette', commands: 'Commands', theme: 'Theme',
 };
 export const languages = ['system', 'tr', 'en'] as const;
 export type Language = typeof languages[number];

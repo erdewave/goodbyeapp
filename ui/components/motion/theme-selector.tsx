@@ -1,5 +1,3 @@
-"use client";
-
 import {
   useRef,
   useState,
@@ -267,5 +265,3 @@ export function ThemeSelector({
     </div>
   );
 }
-
-export default ThemeSelector;

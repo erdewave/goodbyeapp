@@ -1,10 +1,11 @@
-// Shapes returned by the preload bridge (electron/preload.cjs → electron/main.cjs).
+import type { TreemapGroup } from '@/components/charts/treemap';
+// Shapes returned by the preload bridge (electron/preload.ts → electron/main.ts).
 export type InstalledApp = { id: string; name: string; publisher: string; version: string; source: string; size: number; removed?: boolean };
 export type Candidate = { id: string; kind: 'registry' | 'file'; path: string; size?: number; reason?: string };
 export type CleanResult = { path: string; ok: boolean; error?: string; backup?: string };
 export type Drive = { root: string; label: string; total: number; free: number };
 export type FileHit = { path: string; name: string; size: number };
-export type DriveReport = { root: string; scanned: number; current: string; done: boolean; mode: 'mft' | 'walk'; files: FileHit[] };
+export type DriveReport = { root: string; scanned: number; current: string; done: boolean; mode: 'mft' | 'walk'; files: FileHit[]; tree?: TreemapGroup };
 export type WindowState = { maximized: boolean; focused: boolean; platform?: string };
 type Api = {
   load(): Promise<{ apps: InstalledApp[]; platform: string }>;
@@ -19,6 +20,7 @@ type Api = {
   scanFiles(): Promise<DriveReport[]>;
   cancelFiles(): Promise<void>;
   reveal(path: string): Promise<void>;
+  open(path: string): Promise<void>;
   language(code: string): Promise<void>;
   onFilesProgress(callback: (reports: DriveReport[]) => void): () => void;
 };

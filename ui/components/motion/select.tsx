@@ -1,4 +1,3 @@
-"use client";
 // beui.dev/components/motion/select
 
 import { Check, ChevronDown } from "lucide-react";

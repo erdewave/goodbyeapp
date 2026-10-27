@@ -8,6 +8,7 @@ import { loadSizes } from './sizes';
 import * as files from './files';
 import { t, setLanguage } from './i18n';
 import type { AppRecord, CleanResult, Item } from './types';
+import type { TreeNode } from './tree';
 let iconPromise: Promise<Record<string, string>> | null, sizePromise: Promise<Record<string, number>> | null, fileScan: AbortController | null = null, found = new Set<string>();
 let win: BrowserWindow, catalog = new Map<string, AppRecord>(), plans = new Map<string, Item[]>(), busy = false;
 const index = path.join(__dirname, '../dist-ui/index.html');
@@ -64,7 +65,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('sizes', event => { checkSender(event); return sizePromise ||= loadSizes([...catalog.values()]); });
   const backupDir = () => path.join(app.getPath('userData'), 'registry-backups');
   handle('backups', async () => { await fs.mkdir(backupDir(), { recursive: true }); await shell.openPath(backupDir()); });
-  // Disk scan runs outside the busy lock so the window stays usable; reveal only accepts paths the scan produced.
+  // Disk scan runs outside the busy lock so the window stays usable; reveal and open only accept paths the scan produced.
   ipcMain.handle('drives', event => { checkSender(event); return files.listDrives(); });
   ipcMain.handle('scanFiles', async event => {
     checkSender(event);
@@ -72,14 +73,17 @@ app.whenReady().then(async () => {
     const controller = fileScan = new AbortController();
     try {
       const jobs = (await files.listDrives()).map(d => files.scanDrive(d.root, controller.signal));
-      const snapshot = () => { const reports = jobs.map(files.report); found = new Set(reports.flatMap(r => r.files.map(f => f.path))); return reports; };
+      // Map tiles can be revealed too: every tree node id is a scanned path (remainder areas end in \0).
+      const ids = (n: TreeNode): string[] => [n.id, ...(n.children ?? []).flatMap(ids)];
+      const snapshot = (tree = false) => { const reports = jobs.map(j => files.report(j, tree)); found = new Set(reports.flatMap(r => [...r.files.map(f => f.path), ...(r.tree ? ids(r.tree) : [])])); return reports; };
       const timer = setInterval(() => { if (!win.webContents.isDestroyed()) win.webContents.send('files:progress', snapshot()); }, 400);
       try { await Promise.all(jobs.map(j => j.promise)); } finally { clearInterval(timer); }
-      return snapshot();
+      return snapshot(true);
     } finally { fileScan = null; }
   });
   ipcMain.handle('cancelFiles', event => { checkSender(event); fileScan?.abort(); });
   ipcMain.handle('reveal', (event, target) => { checkSender(event); if (typeof target !== 'string' || !found.has(target)) throw new Error(t.notInScan); shell.showItemInFolder(target); });
+  ipcMain.handle('open', async (event, target) => { checkSender(event); if (typeof target !== 'string' || !found.has(target)) throw new Error(t.notInScan); const error = await shell.openPath(target); if (error) throw new Error(error); });
   const others = (id: string) => [...catalog.values()].filter(o => !o.removed && o.id !== id);
   async function cleanTarget(id: unknown) {
     const target = getApp(id);

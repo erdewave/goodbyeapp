@@ -67,7 +67,7 @@ Aynı anda birden fazla kaldırma başlatabilirsiniz; işler sıraya alınır ve
 
 ### Büyük dosyaları bulmak
 
-**Büyük dosyalar** sekmesini açın. Tarama otomatik başlar ve her disk için en büyük dosyalar boyut sırasıyla listelenir. Bir dosyanın yanındaki klasör simgesi onu Dosya Gezgini'nde açar. Taramayı **Durdur** ile kesebilir, **Yeniden tara** ile tekrarlayabilirsiniz.
+**Dosyalar** sekmesini açın. Tarama otomatik başlar ve her disk için en büyük dosyalar boyut sırasıyla listelenir. Bir dosyaya sağ tıklayarak onu açabilir veya Dosya Gezgini'nde gösterebilirsiniz. Taramayı **Durdur** ile kesebilir, **Yeniden tara** ile tekrarlayabilirsiniz.
 
 ### Ayarlar
 

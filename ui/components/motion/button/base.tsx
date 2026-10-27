@@ -1,4 +1,3 @@
-"use client";
 // beui.dev/components/motion/button
 
 import {
@@ -30,16 +29,6 @@ export interface ButtonProps extends Omit<
   pressScale?: number;
   /** Spawn a Material-style ripple from the press point. Off by default. */
   ripple?: boolean;
-  children?: ReactNode;
-}
-
-export interface ButtonLinkProps extends Omit<
-  HTMLMotionProps<"a">,
-  "children"
-> {
-  variant?: ButtonVariant;
-  size?: ButtonSize;
-  pressScale?: number;
   children?: ReactNode;
 }
 
@@ -146,40 +135,6 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ) : null}
         {children}
       </motion.button>
-    );
-  },
-);
-
-export const ButtonLink = forwardRef<HTMLAnchorElement, ButtonLinkProps>(
-  function ButtonLink(
-    {
-      variant = "primary",
-      size = "md",
-      pressScale = 0.93,
-      className,
-      children,
-      ...rest
-    },
-    ref,
-  ) {
-    const reduce = useReducedMotion();
-
-    return (
-      <motion.a
-        ref={ref}
-        whileTap={reduce ? undefined : { scale: pressScale }}
-        transition={SPRING_PRESS}
-        className={cn(
-          "inline-flex items-center justify-center font-medium select-none",
-          "transition-colors",
-          VARIANT_CLASS[variant],
-          SIZE_CLASS[size],
-          className,
-        )}
-        {...rest}
-      >
-        {children}
-      </motion.a>
     );
   },
 );

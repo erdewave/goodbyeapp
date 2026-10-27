@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useRef } from "react";
 
 /** What a pointerdown recorded, read back by the click that ends its gesture. */
