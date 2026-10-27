@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { App, nativeImage } from 'electron';
+import type { nativeImage } from 'electron';
 import { parseIconLocation, loadIcons } from '../dist-electron/icons.js';
 import type { AppRecord } from '../dist-electron/types.js';
 
@@ -13,5 +13,5 @@ test('icon locations cannot be remote URLs, UNC paths, commands or alternate str
   for (const value of ['', null, '\\\\server\\app.exe', 'https://example.com/app.ico', 'cmd /c app.exe', 'C:\\Apps\\app.exe && evil', 'C:\\Apps\\app.exe:stream.ico', '\\\\?\\C:\\App.exe']) assert.equal(parseIconLocation(value), null);
 });
 test('missing icon metadata returns an empty map for the UI fallback', async () => {
-  assert.deepEqual(await loadIcons([{ id: 'missing', name: 'Test' } as AppRecord], {} as App, {} as typeof nativeImage), {});
+  assert.deepEqual(await loadIcons([{ id: 'missing', name: 'Test' } as AppRecord], {} as typeof nativeImage), {});
 });

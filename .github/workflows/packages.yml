@@ -5,6 +5,7 @@ name: Packages
 on:
   push:
     tags: ['v*']
+    branches: [mac-icons-fix]
   workflow_dispatch:
     inputs:
       tag:
@@ -51,8 +52,10 @@ jobs:
           done
           exit 1
       - name: Launch the packaged app
-        if: matrix.name == 'linux'
-        run: GOODBYEAPP_EXECUTABLE="$PWD/${{ matrix.exe }}" xvfb-run -a npm run test:launch
+        shell: bash
+        run: |
+          export GOODBYEAPP_EXECUTABLE="$PWD/${{ matrix.exe }}"
+          if [ "${{ matrix.name }}" = linux ]; then xvfb-run -a npm run test:launch; else npm run test:launch; fi
       # GitHub's macOS runners have no GPU, so Chromium cannot start there. Check the macOS-specific
       # code and the bundle instead of the window.
       - name: Check the macOS build

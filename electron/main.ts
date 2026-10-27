@@ -61,7 +61,7 @@ app.whenReady().then(async () => {
   win.webContents.on('will-navigate', e => e.preventDefault());
   ipcMain.handle('language', (event, code) => { checkSender(event); setLanguage(code); });
   handle('load', refresh);
-  ipcMain.handle('icons', event => { checkSender(event); return iconPromise ||= loadIcons([...catalog.values()], app, nativeImage); });
+  ipcMain.handle('icons', event => { checkSender(event); return iconPromise ||= loadIcons([...catalog.values()], nativeImage); });
   ipcMain.handle('sizes', event => { checkSender(event); return sizePromise ||= loadSizes([...catalog.values()]); });
   const backupDir = () => path.join(app.getPath('userData'), 'registry-backups');
   handle('backups', async () => { await fs.mkdir(backupDir(), { recursive: true }); await shell.openPath(backupDir()); });
