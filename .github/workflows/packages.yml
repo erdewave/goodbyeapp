@@ -22,8 +22,8 @@ jobs:
       matrix:
         include:
           - { name: linux, os: ubuntu-latest, exe: 'release/linux-unpacked/goodbyeapp', files: 'release/*.AppImage', flags: '-c.linux.target=AppImage' }
-          - { name: mac-arm64, os: macos-latest, exe: 'release/mac-arm64/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg', flags: '-c.mac.identity=-' }
-          - { name: mac-x64, os: macos-15-intel, exe: 'release/mac/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg', flags: '-c.mac.identity=-' }
+          - { name: mac-arm64, os: macos-latest, exe: 'release/mac-arm64/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg', flags: '-c.mac.identity=- -c.mac.hardenedRuntime=false' }
+          - { name: mac-x64, os: macos-15-intel, exe: 'release/mac/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg', flags: '-c.mac.identity=- -c.mac.hardenedRuntime=false' }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: npm test
       # .deb needs an author email in package.json, so Linux ships the AppImage only for now.
-      # macOS gets an ad-hoc signature: Apple Silicon will not run a bundle with none.
+      # macOS gets an ad-hoc signature (Apple Silicon will not run a bundle with none) and no hardened
+      # runtime, whose library validation would reject Electron's frameworks under an ad-hoc signature.
       # hdiutil sometimes fails to eject the disk image on macOS runners, so building is retried.
       - name: Package
         shell: bash
