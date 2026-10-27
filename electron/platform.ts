@@ -40,7 +40,8 @@ export async function listApps(): Promise<AppRecord[]> {
   }
   const apps: AppRecord[] = [];
   for (const scope of ['user', 'system']) {
-    const result = await run('flatpak', ['list', '--app', '--' + scope, '--columns=application,name,version,size']);
+    // Without Flatpak installed there is nothing to list; failing here would leave the app stuck loading.
+    const result = await run('flatpak', ['list', '--app', '--' + scope, '--columns=application,name,version,size']).catch(e => { if (/ENOENT/.test(e.message)) return ''; throw e; });
     for (const line of result.split('\n').filter(Boolean)) {
       const [bundle, name, version, size] = line.split('\t');
       if (bundle && name) apps.push({ id: id(scope + bundle), name, bundle, version: version || '', publisher: 'Flatpak · ' + scope, source: 'Flatpak', scope, size: flatpakSize(size) });

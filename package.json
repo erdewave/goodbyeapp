@@ -1,6 +1,6 @@
 {
   "name": "goodbyeapp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Uygulama kaldırma ve kalıntı temizleme",
   "author": "GoodbyeAPP",
   "license": "MIT",
@@ -9,6 +9,7 @@
     "start": "npm run build && electron .",
     "test": "npm run build:electron && tsc -p tsconfig.test.json && node --test tests/*.test.mts",
     "test:ui": "npm run build && node tests/ui-smoke.mts",
+    "test:launch": "node tests/launch.mts",
     "pack": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder",
     "build:electron": "tsc -p tsconfig.electron.json",

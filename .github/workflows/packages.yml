@@ -1,0 +1,79 @@
+# Builds and checks the macOS and Linux packages, then attaches them to a release.
+# Windows is built by hand, so it is not in the matrix.
+name: Packages
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to build and attach the packages to. Empty only keeps them as workflow artifacts.
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, os: ubuntu-latest, exe: 'release/linux-unpacked/goodbyeapp', files: 'release/*.AppImage', flags: '-c.linux.target=AppImage' }
+          - { name: mac-arm64, os: macos-latest, exe: 'release/mac-arm64/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg', flags: '-c.mac.identity=- -c.mac.hardenedRuntime=false' }
+          - { name: mac-x64, os: macos-15-intel, exe: 'release/mac/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg', flags: '-c.mac.identity=- -c.mac.hardenedRuntime=false' }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Install Xvfb
+        if: matrix.name == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - run: npm test
+      # .deb needs an author email in package.json, so Linux ships the AppImage only for now.
+      # macOS gets an ad-hoc signature (Apple Silicon will not run a bundle with none) and no hardened
+      # runtime, whose library validation would reject Electron's frameworks under an ad-hoc signature.
+      # hdiutil sometimes fails to eject the disk image on macOS runners, so building is retried.
+      - name: Package
+        shell: bash
+        run: |
+          npm run build
+          for attempt in 1 2 3; do
+            npx electron-builder --publish never ${{ matrix.flags }} && exit 0
+            sleep 10
+          done
+          exit 1
+      - name: Launch the packaged app
+        if: matrix.name == 'linux'
+        run: GOODBYEAPP_EXECUTABLE="$PWD/${{ matrix.exe }}" xvfb-run -a npm run test:launch
+      # GitHub's macOS runners have no GPU, so Chromium cannot start there. Check the macOS-specific
+      # code and the bundle instead of the window.
+      - name: Check the macOS build
+        if: startsWith(matrix.name, 'mac')
+        shell: bash
+        run: |
+          node -e "require('./dist-electron/platform.js').listApps().then(a => { console.log(a.length + ' apps', a.slice(0, 3)); process.exit(a.length ? 0 : 1); })"
+          APP=$(dirname "$(dirname "$(dirname "${{ matrix.exe }}")")")
+          test -f "$APP/Contents/Resources/app.asar"
+          codesign --verify --deep --strict --verbose=2 "$APP"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            ${{ matrix.files }}
+            artifacts/*.png
+          if-no-files-found: warn
+      - name: Attach to the release
+        if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: gh release upload "$TAG" ${{ matrix.files }} --clobber
