@@ -20,7 +20,7 @@
 - **Büyük dosyalar:** Her diskte en çok yer kaplayan dosyalar listelenir ve tek tıkla klasörde gösterilir. NTFS disklerde dosya tablosu (MFT) doğrudan okunduğu için tarama saniyeler sürer.
 - **Hızlı arama:** Tek bir arama kutusundan uygulamalara, büyük dosyalara ve ayarlara ulaşılır.
 - **Görünüm:** Açık, koyu ve sistem teması; sekiz vurgu rengi (Mavi, Mor, Turkuaz, Yeşil, Kehribar, Turuncu, Pembe, Grafit); varsayılan renk mavidir. Azaltılmış hareket tercihine uyulur.
-- **Türkçe ve İngilizce:** Uygulama işletim sisteminin dilini kullanır; sistem dili Türkçe değilse İngilizce açılır. Dil, Ayarlar'dan elle değiştirilebilir.
+- **Dil desteği:** Şu anda iki dil desteklenir: Türkçe ve İngilizce. Uygulama işletim sisteminin dilini kullanır; sistem dili Türkçe değilse İngilizce açılır. Dil, Ayarlar'dan elle değiştirilebilir. İlerleyen sürümlerde yeni diller eklenecektir.
 - **Gizlilik:** Uygulama internete veri göndermez. Logolar bile internetten indirilmez, sistemdeki kayıtlı simgelerden okunur.
 
 ## Kurulum
