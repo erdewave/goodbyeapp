@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import { execFile } from 'node:child_process';
-import type { App, nativeImage } from 'electron';
+import type { nativeImage } from 'electron';
 import type { AppRecord } from './types';
 
 // Registry icon locations are data, never commands. Reject remote/device paths.
@@ -31,7 +31,15 @@ async function windowsIcons(apps: AppRecord[]): Promise<Record<string, string>> 
     child.stdin!.end(input);
   });
 }
-export async function loadIcons(apps: AppRecord[], electronApp: App, images: typeof nativeImage) {
+// app.getFileIcon crashed the main process on macOS 26 (SIGTRAP in a thread-pool worker), so the icon is
+// read from the bundle's own .icns instead. Apps that only ship an asset catalog get the UI's fallback.
+const plist = (file: string) => new Promise<Record<string, unknown>>(resolve => execFile('/usr/bin/plutil', ['-convert', 'json', '-o', '-', file], (error, stdout) => { try { resolve(error ? {} : JSON.parse(stdout)); } catch { resolve({}); } }));
+async function bundleIcon(app: string) {
+  const name = (await plist(path.join(app, 'Contents', 'Info.plist'))).CFBundleIconFile;
+  if (typeof name !== 'string' || !/^[^/\\]+$/.test(name)) return null;
+  return path.join(app, 'Contents', 'Resources', path.extname(name) ? name : name + '.icns');
+}
+export async function loadIcons(apps: AppRecord[], images: typeof nativeImage) {
   if (process.platform === 'win32') return windowsIcons(apps);
   const result: Record<string, string> = {};
   // Bounded concurrency keeps native icon decoding from flooding the main process.
@@ -41,8 +49,9 @@ export async function loadIcons(apps: AppRecord[], electronApp: App, images: typ
       const entry = apps[cursor++];
       try {
         if (process.platform === 'darwin' && entry.location?.endsWith('.app')) {
-          const icon = await electronApp.getFileIcon(entry.location, { size: 'large' });
-          if (!icon.isEmpty()) result[entry.id] = icon.resize({ width: 48, height: 48 }).toDataURL();
+          const file = await bundleIcon(entry.location);
+          const icon = file && images.createFromPath(file);
+          if (icon && !icon.isEmpty()) result[entry.id] = icon.resize({ width: 48, height: 48 }).toDataURL();
         } else if (process.platform === 'linux' && /^[a-z0-9._-]+$/i.test(entry.bundle || '')) {
           const root = entry.scope === 'user' ? path.join(process.env.XDG_DATA_HOME || path.join(os.homedir(), '.local/share'), 'flatpak/exports/share/icons/hicolor') : '/var/lib/flatpak/exports/share/icons/hicolor';
           for (const size of [64, 48, 128, 32, 256]) {
