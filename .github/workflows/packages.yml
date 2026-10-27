@@ -60,7 +60,8 @@ jobs:
         shell: bash
         run: |
           EXE=$(ls "$PWD/${{ matrix.exe }}")
-          ( "$EXE" --no-sandbox & pid=$!; sleep 15; kill $pid ) 2>&1 | head -60 || true
+          ( "$EXE" --no-sandbox --disable-gpu --in-process-gpu --use-angle=swiftshader --enable-logging=stderr & pid=$!; sleep 15; kill $pid ) 2>&1 | head -60 || true
+          codesign -dv "$PWD/$(dirname "$(dirname "$(dirname "${{ matrix.exe }}")")")" 2>&1 | head -8 || true
           for f in $(ls -t ~/Library/Logs/DiagnosticReports/* 2>/dev/null | head -2); do echo "== $f"; head -c 4000 "$f"; done
       - uses: actions/upload-artifact@v4
         if: always()

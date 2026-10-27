@@ -8,7 +8,9 @@ import path from 'node:path';
 const executablePath = process.env.GOODBYEAPP_EXECUTABLE;
 assert.ok(executablePath, 'GOODBYEAPP_EXECUTABLE is not set');
 const env = { ...process.env } as Record<string, string>; delete env.ELECTRON_RUN_AS_NODE; env.ELECTRON_ENABLE_LOGGING = '1';
-const app = await electron.launch({ executablePath, args: ['--disable-gpu', '--no-sandbox', '--lang=en'], env });
+// macOS CI runners are VMs without a GPU, and Chromium aborts when its GPU process cannot start.
+const gpuless = process.platform === 'darwin' ? ['--in-process-gpu', '--use-angle=swiftshader'] : [];
+const app = await electron.launch({ executablePath, args: ['--disable-gpu', '--no-sandbox', '--lang=en', ...gpuless], env });
 app.process().on('exit', (code, signal) => console.error(`app exited: code=${code} signal=${signal}`));
 try {
   const page = await app.firstWindow();
