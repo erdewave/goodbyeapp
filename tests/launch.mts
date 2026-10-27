@@ -15,7 +15,8 @@ try {
   page.setDefaultTimeout(60000);
   const errors: string[] = [];
   page.on('pageerror', e => errors.push(e.message));
-  await page.waitForFunction(() => { const n = document.querySelector('#nav-count'); return n && n.textContent !== '—'; });
+  page.on('console', m => console.error('page:', m.text()));
+  await page.waitForFunction(() => { const n = document.querySelector('#nav-count'); return n && n.textContent !== '—'; }).catch(async e => { console.error('page text:', await page.locator('body').innerText().catch(() => '(page gone)')); throw e; });
   for (const view of ['files', 'settings', 'apps']) {
     await page.locator(`[data-view="${view}"]`).click();
     await page.locator(`#${view}-view`).waitFor({ state: 'visible' });

@@ -39,13 +39,29 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: npm test
       # .deb needs an author email in package.json, so Linux ships the AppImage only for now.
-      - run: npm run dist -- --publish never ${{ matrix.name == 'linux' && '-c.linux.target=AppImage' || '' }}
+      # hdiutil sometimes fails to eject the disk image on macOS runners, so building is retried.
+      - name: Package
+        shell: bash
+        run: |
+          npm run build
+          for attempt in 1 2 3; do
+            npx electron-builder --publish never ${{ matrix.name == 'linux' && '-c.linux.target=AppImage' || '' }} && exit 0
+            sleep 10
+          done
+          exit 1
       - name: Launch the packaged app
         shell: bash
         run: |
           ls release
           export GOODBYEAPP_EXECUTABLE="$PWD/${{ matrix.exe }}"
           if [ "${{ matrix.name }}" = linux ]; then xvfb-run -a npm run test:launch; else npm run test:launch; fi
+      - name: App output and crash reports
+        if: failure() && startsWith(matrix.name, 'mac')
+        shell: bash
+        run: |
+          EXE=$(ls "$PWD/${{ matrix.exe }}")
+          ( "$EXE" --no-sandbox & pid=$!; sleep 15; kill $pid ) 2>&1 | head -60 || true
+          for f in $(ls -t ~/Library/Logs/DiagnosticReports/* 2>/dev/null | head -2); do echo "== $f"; head -c 4000 "$f"; done
       - uses: actions/upload-artifact@v4
         if: always()
         with:
