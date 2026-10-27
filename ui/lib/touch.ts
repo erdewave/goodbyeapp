@@ -1,13 +1,10 @@
-export const TOUCH_GESTURE_CLASS = "select-none [-webkit-touch-callout:none]";
-
 /**
- * The same opt-out for a gesture surface that wraps content the consumer owns:
+ * Selection opt-out for a gesture surface that wraps content the consumer owns:
  * a scroller, a context-menu trigger, a sheet header, a list row. Selection is
  * suppressed only where the platform runs its own press gestures — a coarse
  * pointer — so a mouse user can still select and copy that content. If the
  * gesture itself would paint a selection under the cursor, add `select-none`
- * for the duration of the gesture rather than reaching for
- * `TOUCH_GESTURE_CLASS`.
+ * for the duration of the gesture.
  *
  * `pointer: coarse` describes the *primary* pointer and nothing else, so a
  * hybrid machine reads it wrong in both directions: a tablet with a mouse
@@ -40,32 +37,6 @@ export function holdSelection(element: HTMLElement) {
     element.style.removeProperty("user-select");
     element.style.removeProperty("-webkit-user-select");
   };
-}
-
-/**
- * Pointer capture, best effort. WebKit throws `NotFoundError` when the pointer
- * is already gone by the time the handler runs — routine on iOS, where the
- * system can claim the touch first — and an uncaught throw takes the rest of
- * the handler, the gesture included, down with it. Touch pointers carry
- * implicit capture anyway, so losing it is never fatal.
- */
-export function capturePointer(element: Element, pointerId: number) {
-  try {
-    element.setPointerCapture(pointerId);
-  } catch {
-    // Pointer is no longer active — implicit capture still applies on touch.
-  }
-}
-
-/** Release a capture taken with `capturePointer`, ignoring a stale pointer. */
-export function releasePointer(element: Element, pointerId: number) {
-  try {
-    if (element.hasPointerCapture(pointerId)) {
-      element.releasePointerCapture(pointerId);
-    }
-  } catch {
-    // Capture was already dropped by the browser.
-  }
 }
 
 /**

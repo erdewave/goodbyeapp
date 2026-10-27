@@ -1,8 +1,7 @@
-"use client";
 // beui.dev/components/blocks/command-palette
 
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
-import { Search, type LucideIcon } from "lucide-react";
+import { Clock, Search, type LucideIcon } from "lucide-react";
 import {
   type ReactNode,
   useCallback,
@@ -30,6 +29,10 @@ export type CommandItem = {
   keywords?: string[];
   icon?: LucideIcon;
   badge?: ReactNode;
+  /** Replaces `icon` with a custom node, e.g. an app logo. */
+  leading?: ReactNode;
+  /** Run `onSelect` without closing the palette or recording a recent search. */
+  keepOpen?: boolean;
   onSelect: () => void;
 };
 
@@ -52,6 +55,16 @@ const PANEL_SPRING = {
   mass: 0.5,
 } as const;
 
+const RECENT_KEY = "recentSearches";
+const RECENT_MAX = 5;
+const loadRecent = (): string[] => {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_KEY) || "[]");
+  } catch {
+    return [];
+  }
+};
+
 export function CommandPalette({
   items,
   shortcut = "k",
@@ -72,6 +85,11 @@ export function CommandPalette({
   );
 
   const [query, setQuery] = useState("");
+  // The category pill narrows the list; with neither a query nor a pill the
+  // palette shows recent searches instead of every command.
+  const [pill, setPill] = useState<string | null>(null);
+  const [recent, setRecent] = useState(loadRecent);
+  const browsing = !query.trim() && !pill;
   // Portal target only exists client-side; render nothing during SSR/hydration.
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -113,11 +131,27 @@ export function CommandPalette({
     };
   }, [open]);
 
-  const filtered = useMemo(() => searchCommands(items, query), [items, query]);
+  const pills = useMemo(
+    () => [...new Set(items.flatMap((it) => (it.group ? [it.group] : [])))],
+    [items],
+  );
+
+  const filtered = useMemo(() => {
+    if (browsing)
+      return recent.map<CommandItem>((label) => ({
+        id: `recent-${label}`,
+        label,
+        group: t.recentSearches,
+        icon: Clock,
+        keepOpen: true,
+        onSelect: () => setQuery(label),
+      }));
+    return searchCommands(pill ? items.filter((it) => it.group === pill) : items, query);
+  }, [items, query, pill, browsing, recent]);
 
   // Reserve the icon column only when at least one item brings an icon, so
   // icon-less lists don't render a dead gap before every label.
-  const hasIcons = useMemo(() => items.some((it) => it.icon), [items]);
+  const hasIcons = useMemo(() => items.some((it) => it.icon || it.leading), [items]);
 
   const grouped = useMemo(() => {
     const map = new Map<string, CommandItem[]>();
@@ -136,12 +170,13 @@ export function CommandPalette({
   // array, so they cannot drift apart.
   const rows = useMemo(() => grouped.flatMap(([, list]) => list), [grouped]);
 
-  const { activeIndex: active, moveTo, moveActive } = useRowCursor(rows, query);
+  const { activeIndex: active, moveTo, moveActive } = useRowCursor(rows, `${query}\0${pill}`);
 
   // Clearing the query would drop the cursor on its own, but only if it had
   // changed; `moveTo(null)` covers reopening on an already-empty query.
   useOnOpen(open, () => {
     setQuery("");
+    setPill(null);
     moveTo(null);
   });
 
@@ -150,6 +185,35 @@ export function CommandPalette({
     const frame = requestAnimationFrame(() => inputRef.current?.focus());
     return () => cancelAnimationFrame(frame);
   }, [open]);
+
+  const run = (it: CommandItem) => {
+    it.onSelect();
+    if (it.keepOpen) {
+      inputRef.current?.focus();
+      return;
+    }
+    if (query.trim()) {
+      const next = [it.label, ...recent.filter((r) => r !== it.label)].slice(0, RECENT_MAX);
+      setRecent(next);
+      try {
+        localStorage.setItem(RECENT_KEY, JSON.stringify(next));
+      } catch {
+        // Recents are a convenience; storage may be unavailable.
+      }
+    }
+    setOpen(false);
+  };
+
+  const clearRecent = () => {
+    setRecent([]);
+    try {
+      localStorage.removeItem(RECENT_KEY);
+    } catch {
+      // See run().
+    }
+  };
+
+  const hideList = browsing && rows.length === 0;
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
@@ -161,10 +225,7 @@ export function CommandPalette({
     } else if (e.key === "Enter") {
       e.preventDefault();
       const it = rows[active];
-      if (it) {
-        it.onSelect();
-        setOpen(false);
-      }
+      if (it) run(it);
     }
   };
 
@@ -268,7 +329,33 @@ export function CommandPalette({
                   </kbd>
                 </div>
                 <div
+                  role="group"
+                  aria-label={t.categories}
+                  className={cn("flex flex-wrap gap-2 px-4 py-3", !hideList && "border-b border-border")}
+                >
+                  {pills.map((g) => (
+                    <button
+                      key={g}
+                      type="button"
+                      aria-pressed={pill === g}
+                      onClick={() => {
+                        setPill(pill === g ? null : g);
+                        inputRef.current?.focus();
+                      }}
+                      className={cn(
+                        "rounded-full px-3 py-1 text-xs transition-colors",
+                        pill === g
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {g}
+                    </button>
+                  ))}
+                </div>
+                <div
                   ref={listRef}
+                  hidden={hideList}
                   id={`${uid}-list`}
                   role="listbox"
                   aria-label={t.commands}
@@ -282,10 +369,19 @@ export function CommandPalette({
                     grouped.map(([group, list]) => (
                       <div key={group} className="mb-1 last:mb-0">
                         <div
-                          aria-hidden
-                          className="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
+                          aria-hidden={!browsing}
+                          className="flex items-center justify-between px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground"
                         >
                           {group}
+                          {browsing ? (
+                            <button
+                              type="button"
+                              onClick={clearRecent}
+                              className="text-[11px] font-medium normal-case tracking-normal text-primary transition-colors hover:text-primary/80"
+                            >
+                              {t.clearHistory}
+                            </button>
+                          ) : null}
                         </div>
                         {list.map((it) => {
                           // `rows` holds these very objects, in render order.
@@ -301,10 +397,7 @@ export function CommandPalette({
                               aria-selected={isActive}
                               data-index={idx}
                               onMouseEnter={() => moveTo(it.id)}
-                              onClick={() => {
-                                it.onSelect();
-                                setOpen(false);
-                              }}
+                              onClick={() => run(it)}
                               className={cn(
                                 "relative isolate flex w-full items-center gap-3 rounded-md px-2 py-2 text-left text-sm transition-colors",
                                 isActive
@@ -329,10 +422,10 @@ export function CommandPalette({
                                   }
                                 />
                               ) : null}
-                              {Icon ? (
-                                <Icon className="relative z-10 h-4 w-4" />
-                              ) : hasIcons ? (
-                                <span className="relative z-10 h-4 w-4" />
+                              {it.leading || Icon || hasIcons ? (
+                                <span className="relative z-10 grid size-5 shrink-0 place-items-center">
+                                  {it.leading ?? (Icon ? <Icon className="h-4 w-4" /> : null)}
+                                </span>
                               ) : null}
                               <span className="relative z-10 flex-1 truncate">
                                 {it.label}

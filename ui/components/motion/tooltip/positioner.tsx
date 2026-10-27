@@ -1,5 +1,3 @@
-"use client";
-
 import { useIsPresent } from "motion/react";
 import { type CSSProperties, type ReactNode, type Ref, useCallback, useState } from "react";
 import { type TooltipSide, useTooltipPosition } from "./use-position";

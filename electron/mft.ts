@@ -2,6 +2,7 @@
 // Written from the public NTFS on-disk format: boot sector, FILE records, $FILE_NAME (0x30), $DATA (0x80).
 import fs from 'node:fs/promises';
 import type { Job } from './types';
+import { buildTree } from './tree';
 type Table = { kind: Uint8Array; parent: Uint32Array; size: Float64Array; name: (string | undefined)[] };
 const CHUNK = 8 * 1024 * 1024, ROOT = 5;
 const u64 = (buf: Buffer, at: number) => buf.readUInt32LE(at) + buf.readUInt32LE(at + 4) * 2 ** 32;
@@ -87,5 +88,6 @@ export async function scan(job: Job, signal: AbortSignal, limit: number) {
     const path = (i: number) => { const parts = []; for (let p = i, depth = 0; p !== ROOT && depth < 512; p = t.parent[p], depth++) parts.unshift(t.name[p] ?? '?'); return drive + '\\' + parts.join('\\'); };
     job.top = top.map(i => ({ path: path(i), name: t.name[i], size: t.size[i], ino: i }));
     job.scanned = files;
+    job.tree = buildTree(t.parent, i => t.name[i] ?? '?', t.size, ROOT, drive + '\\');
   } finally { await fh.close(); }
 }
