@@ -21,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux, os: ubuntu-latest, exe: 'release/linux-unpacked/goodbyeapp', files: 'release/*.AppImage release/*.deb' }
+          - { name: linux, os: ubuntu-latest, exe: 'release/linux-unpacked/goodbyeapp', files: 'release/*.AppImage' }
           - { name: mac-arm64, os: macos-latest, exe: 'release/mac-arm64/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg' }
           - { name: mac-x64, os: macos-15-intel, exe: 'release/mac/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg' }
     runs-on: ${{ matrix.os }}
@@ -38,7 +38,8 @@ jobs:
         if: matrix.name == 'linux'
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - run: npm test
-      - run: npm run dist -- --publish never
+      # .deb needs an author email in package.json, so Linux ships the AppImage only for now.
+      - run: npm run dist -- --publish never ${{ matrix.name == 'linux' && '-c.linux.target=AppImage' || '' }}
       - name: Launch the packaged app
         shell: bash
         run: |
