@@ -1,0 +1,87 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Design tokens. --pick / --pick-dark come from the accent picker in Settings. */
+:root {
+  --background: #fafafa; --foreground: #29292c; --popover: #ffffff; --sidebar: #efeff0;
+  --primary: var(--pick, #6e6bd5); --primary-foreground: #ffffff;
+  --muted: #f0f0f2; --muted-foreground: #77777e; --accent: #e2e2e5; --accent-foreground: #29292c;
+  --border: #e9e9ed; --input: #ddddE3; --ring: var(--pick, #7774d8);
+  --destructive: #d34750; --destructive-foreground: #ffffff;
+  --del-surface: #f4f4f9; --del-recess: #e7e7ef; --del-glyph: #868593; --del-hover: #fafafd;
+  --del-lift: 0 .5px 1px #0000000d, 0 1px 3px #00000014, inset 0 .5px 0 #ffffffe6;
+  --ease-micro: cubic-bezier(.16, 1, .3, 1); --ease-del: cubic-bezier(.32, .72, 0, 1);
+  --titlebar-height: 36px; --sidebar-width: 60px;
+}
+.dark {
+  --background: #1b1b1e; --foreground: #e7e7eb; --popover: #252529; --sidebar: #171719;
+  --primary: var(--pick-dark, #9390ee); --primary-foreground: #191824;
+  --muted: #252529; --muted-foreground: #97979f; --accent: #303035; --accent-foreground: #eeeef1;
+  --border: #2a2a30; --input: #3c3c44; --ring: var(--pick-dark, #9390ee); --destructive: #ee737c;
+  --del-surface: #262626; --del-recess: #1b1b1b; --del-glyph: #9b9aa7; --del-hover: #2c2c2c;
+  --del-lift: 0 .5px 1px #00000059, 0 1.5px 4px #00000040, inset 0 .5px 0 #ffffff12;
+}
+
+@theme inline {
+  --color-background: var(--background); --color-foreground: var(--foreground);
+  --color-popover: var(--popover); --color-sidebar: var(--sidebar);
+  --color-card: var(--popover); --color-border-strong: var(--input); /* beUI tokens */
+  --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground);
+  --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring);
+  --color-destructive: var(--destructive); --color-destructive-foreground: var(--destructive-foreground);
+}
+@theme {
+  --font-sans: "Segoe UI Variable", "Segoe UI", Arial, sans-serif;
+  --animate-content-in: content-in 220ms var(--ease-micro);
+  --animate-panel-in: panel-in 240ms var(--ease-micro);
+  --animate-panel-out: panel-out 120ms ease-in;
+  --animate-pop-in: pop-in 180ms var(--ease-micro);
+  --animate-pop-out: pop-out 100ms ease-in;
+  --animate-fade-in: fade-in 120ms ease-out;
+  --animate-fade-out: fade-out 120ms ease-in;
+  --animate-toast-in: toast-in 260ms var(--ease-micro);
+  --animate-tooltip-in: tooltip-in 120ms var(--ease-micro);
+  --animate-skeleton: skeleton 1.4s infinite;
+  --animate-settle: settle .45s var(--ease-del);
+  @keyframes content-in { from { opacity: 0; transform: translateY(5px); } }
+  @keyframes panel-in { from { opacity: 0; transform: translate(-50%, calc(-50% + 8px)) scale(.98); } }
+  @keyframes panel-out { to { opacity: 0; transform: translate(-50%, calc(-50% + 4px)) scale(.99); } }
+  @keyframes pop-in { from { opacity: 0; transform: scale(.96); } }
+  @keyframes pop-out { to { opacity: 0; transform: scale(.98); } }
+  @keyframes fade-in { from { opacity: 0; } }
+  @keyframes fade-out { to { opacity: 0; } }
+  @keyframes toast-in { from { opacity: 0; transform: translateY(24px); } }
+  @keyframes tooltip-in { from { opacity: 0; transform: translateY(-2px); } }
+  @keyframes skeleton { 50% { opacity: .45; } }
+  @keyframes settle { 50% { scale: .86; } }
+}
+@utility transition-soft {
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, box-shadow 180ms ease, scale 160ms var(--ease-micro);
+}
+
+@layer base {
+  html { color-scheme: light; line-height: normal; }
+  html.dark { color-scheme: dark; }
+  ::selection { background: color-mix(in srgb, var(--primary) 28%, transparent); }
+  body { padding-top: var(--titlebar-height); height: 100vh; overflow: hidden; background: var(--sidebar); color: var(--foreground); font-size: 13px; letter-spacing: -.12px; }
+  /* Desktop surface: non-selectable, scrollable without visible tracks. */
+  * { user-select: none; scrollbar-width: none; }
+  *, ::before, ::after { border-color: var(--border); }
+  *::-webkit-scrollbar { display: none; }
+  input { user-select: text; }
+  /* Preflight changes these browser defaults; the layout was tuned on the defaults. */
+  button, input { letter-spacing: normal; }
+  input { padding: 1px 2px; }
+  svg { display: inline; vertical-align: baseline; }
+  p { line-height: 1.65; }
+  button { cursor: pointer; transition: background .15s, color .15s, border-color .15s, scale .15s; }
+  button:disabled { opacity: .5; cursor: wait; }
+  button svg { flex-shrink: 0; }
+  :focus, :focus-visible { outline: none; } /* project rule: no focus styling anywhere */
+  @media (prefers-reduced-motion: reduce) {
+    *, ::before, ::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+    button { scale: none !important; }
+  }
+}
