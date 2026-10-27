@@ -19,14 +19,15 @@
 - **Yönetici olarak yeniden deneme:** Yetki gerektiren kalıntılar tek bir UAC onayıyla yeniden denenir.
 - **Büyük dosyalar:** Her diskte en çok yer kaplayan dosyalar listelenir ve tek tıkla klasörde gösterilir. NTFS disklerde dosya tablosu (MFT) doğrudan okunduğu için tarama saniyeler sürer.
 - **Hızlı arama:** Tek bir arama kutusundan uygulamalara, büyük dosyalara ve ayarlara ulaşılır.
-- **Görünüm:** Açık, koyu ve sistem teması; yedi vurgu rengi (Grafit, Mavi, Turkuaz, Yeşil, Kehribar, Turuncu, Pembe). Azaltılmış hareket tercihine uyulur.
+- **Görünüm:** Açık, koyu ve sistem teması; sekiz vurgu rengi (Mavi, Mor, Turkuaz, Yeşil, Kehribar, Turuncu, Pembe, Grafit); varsayılan renk mavidir. Azaltılmış hareket tercihine uyulur.
+- **Türkçe ve İngilizce:** Uygulama işletim sisteminin dilini kullanır; sistem dili Türkçe değilse İngilizce açılır. Dil, Ayarlar'dan elle değiştirilebilir.
 - **Gizlilik:** Uygulama internete veri göndermez. Logolar bile internetten indirilmez, sistemdeki kayıtlı simgelerden okunur.
 
 ## Kurulum
 
 ### Hazır kurulum dosyası (Windows)
 
-1. [Releases](https://github.com/erdewave/goodbyeapp/releases) sayfasından `GoodbyeAPP Setup <sürüm>.exe` dosyasını indirin.
+1. [Releases](https://github.com/erdewave/goodbyeapp/releases) sayfasından `GoodbyeAPP-Setup-<sürüm>.exe` dosyasını indirin.
 2. Dosyayı çalıştırın. Kurulum tek adımlıdır ve uygulama kullanıcı klasörüne kurulur.
 3. GoodbyeAPP'i Başlat menüsünden açın. Kayıt defteri ve Program Files kalıntılarını temizleyebilmesi için açılışta yönetici izni ister.
 
@@ -71,6 +72,7 @@ Aynı anda birden fazla kaldırma başlatabilirsiniz; işler sıraya alınır ve
 ### Ayarlar
 
 - **Görünüm** ve **Uygulama rengi:** Tema ve vurgu rengini seçin.
+- **Dil:** Sistem dili, Türkçe veya English arasında seçim yapın.
 - **Kaldırmadan önce geri yükleme noktası:** Açıksa her kaldırmadan önce Windows geri yükleme noktası oluşturulur. Windows son 24 saatte oluşturulmuş bir nokta varsa yenisini atlar.
 - **Yedek klasörünü aç:** Silinen kayıt defteri anahtarlarının `.reg` yedeklerine ulaşın. Bir anahtarı geri getirmek için ilgili dosyaya çift tıklamanız yeterli.
 
