@@ -20,6 +20,7 @@ import { useTouchCapable } from "@/lib/hooks/use-touch-capable";
 import { PresenceGate } from "@/lib/presence-gate";
 import { cn } from "@/lib/utils";
 import { searchCommands } from "@/lib/command-search";
+import { t } from "@/i18n";
 
 export type CommandItem = {
   id: string;
@@ -191,7 +192,7 @@ export function CommandPalette({
           {({ gate }) => (
             <motion.button
               type="button"
-              aria-label="Komut paletini kapat"
+              aria-label={t.closePalette}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{
@@ -219,7 +220,7 @@ export function CommandPalette({
               <motion.div
                 role="dialog"
                 aria-modal="true"
-                aria-label="Komut paleti"
+                aria-label={t.palette}
                 initial={{
                   opacity: 0,
                   y: reduce ? 0 : -8,
@@ -270,7 +271,7 @@ export function CommandPalette({
                   ref={listRef}
                   id={`${uid}-list`}
                   role="listbox"
-                  aria-label="Komutlar"
+                  aria-label={t.commands}
                   className="max-h-[60vh] overflow-y-auto overscroll-contain p-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
                 >
                   {rows.length === 0 ? (

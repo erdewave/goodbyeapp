@@ -4,9 +4,9 @@
 /* Design tokens. --pick / --pick-dark come from the accent picker in Settings. */
 :root {
   --background: #fafafa; --foreground: #29292c; --popover: #ffffff; --sidebar: #efeff0;
-  --primary: var(--pick, #6e6bd5); --primary-foreground: #ffffff;
+  --primary: var(--pick, #2f6fdb); --primary-foreground: #ffffff;
   --muted: #f0f0f2; --muted-foreground: #77777e; --accent: #e2e2e5; --accent-foreground: #29292c;
-  --border: #e9e9ed; --input: #ddddE3; --ring: var(--pick, #7774d8);
+  --border: #e9e9ed; --input: #ddddE3; --ring: var(--pick, #2f6fdb);
   --destructive: #d34750; --destructive-foreground: #ffffff;
   --del-surface: #f4f4f9; --del-recess: #e7e7ef; --del-glyph: #868593; --del-hover: #fafafd;
   --del-lift: 0 .5px 1px #0000000d, 0 1px 3px #00000014, inset 0 .5px 0 #ffffffe6;
@@ -15,9 +15,9 @@
 }
 .dark {
   --background: #1b1b1e; --foreground: #e7e7eb; --popover: #252529; --sidebar: #171719;
-  --primary: var(--pick-dark, #9390ee); --primary-foreground: #191824;
+  --primary: var(--pick-dark, #6aa2f5); --primary-foreground: #191824;
   --muted: #252529; --muted-foreground: #97979f; --accent: #303035; --accent-foreground: #eeeef1;
-  --border: #2a2a30; --input: #3c3c44; --ring: var(--pick-dark, #9390ee); --destructive: #ee737c;
+  --border: #2a2a30; --input: #3c3c44; --ring: var(--pick-dark, #6aa2f5); --destructive: #ee737c;
   --del-surface: #262626; --del-recess: #1b1b1b; --del-glyph: #9b9aa7; --del-hover: #2c2c2c;
   --del-lift: 0 .5px 1px #00000059, 0 1.5px 4px #00000040, inset 0 .5px 0 #ffffff12;
 }

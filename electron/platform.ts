@@ -5,6 +5,7 @@ import os from 'node:os';
 import crypto from 'node:crypto';
 import type { Shell } from 'electron';
 import type { AppRecord, CleanResult, Item } from './types';
+import { t } from './i18n';
 // Shape of one Get-ItemProperty row from the Uninstall registry keys.
 type UninstallEntry = { DisplayName: string; DisplayVersion?: string; Publisher?: string; EstimatedSize?: number; UninstallString: string; DisplayIcon?: string; InstallLocation?: string; PSPath: string };
 type ElevatedJob = { kind: Item['kind']; path: string; backup?: string };
@@ -22,7 +23,7 @@ export const flatpakSize = (text: string | undefined) => { const m = /([\d.,]+)\
 export async function listApps(): Promise<AppRecord[]> {
   if (process.platform === 'win32') {
     const data = await ps("$roots=@('HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*','HKLM:\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*','HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\*'); $a=@(Get-ItemProperty -Path $roots -ErrorAction SilentlyContinue | Where-Object { $_.DisplayName -and $_.UninstallString -and !$_.SystemComponent -and !$_.ParentKeyName } | Select-Object DisplayName,DisplayVersion,Publisher,EstimatedSize,UninstallString,DisplayIcon,InstallLocation,PSPath); ConvertTo-Json -InputObject $a -Compress");
-    return (JSON.parse(data || '[]') as UninstallEntry[]).filter(a => !/^GoodbyeAPP$/i.test(a.DisplayName)).map(a => ({ id: id(a.PSPath), name: a.DisplayName, version: a.DisplayVersion || '', publisher: a.Publisher || 'Bilinmeyen yayıncı', size: Number(a.EstimatedSize || 0) * 1024, source: 'Windows', command: a.UninstallString, registry: a.PSPath, iconSource: a.DisplayIcon || '', vendor: a.Publisher || '', installDir: (a.InstallLocation || '').replace(/^"|"$/g, '') }));
+    return (JSON.parse(data || '[]') as UninstallEntry[]).filter(a => !/^GoodbyeAPP$/i.test(a.DisplayName)).map(a => ({ id: id(a.PSPath), name: a.DisplayName, version: a.DisplayVersion || '', publisher: a.Publisher || '', size: Number(a.EstimatedSize || 0) * 1024, source: 'Windows', command: a.UninstallString, registry: a.PSPath, iconSource: a.DisplayIcon || '', vendor: a.Publisher || '', installDir: (a.InstallLocation || '').replace(/^"|"$/g, '') }));
   }
   if (process.platform === 'darwin') {
     const apps: AppRecord[] = [];
@@ -32,7 +33,7 @@ export async function listApps(): Promise<AppRecord[]> {
         const location = path.join(root, entry.name);
         const plist = path.join(location, 'Contents', 'Info.plist');
         const read = (key: string) => run('/usr/libexec/PlistBuddy', ['-c', 'Print :' + key, plist]).catch(() => '');
-        apps.push({ id: id(location), name: entry.name.slice(0, -4), version: await read('CFBundleShortVersionString'), bundle: await read('CFBundleIdentifier'), publisher: 'macOS uygulaması', size: 0, source: 'macOS', location });
+        apps.push({ id: id(location), name: entry.name.slice(0, -4), version: await read('CFBundleShortVersionString'), bundle: await read('CFBundleIdentifier'), publisher: '', size: 0, source: 'macOS', location });
       }
     }
     return apps;
@@ -53,11 +54,11 @@ export async function uninstall(app: AppRecord, shell: Shell) {
   // Parse the registered executable without handing the string to a command shell.
   const command = app.command!.trim();
   const match = command.match(/^"([^"]+\.exe)"\s*(.*)$/i) || command.match(/^(.+?\.exe)\s*(.*)$/i);
-  if (!match) throw new Error('Bu uygulamanın kaldırma komutu desteklenmiyor. Windows Ayarları üzerinden kaldırıp yeniden tarayın.');
+  if (!match) throw new Error(t.unsupportedUninstall);
   let [, executable, args] = match;
   if (/(^|[\\/])msiexec\.exe$/i.test(executable)) args = args.replace(/\/I(?=\s|\{)/i, '/X');
   const result = await ps(`$p=Start-Process -FilePath ${quote(executable)} ${args ? '-ArgumentList ' + quote(args) : ''} -PassThru -Wait; $p.ExitCode`);
-  if (!['0', '3010', '1641'].includes(result)) throw new Error('Kaldırıcı tamamlanmadı veya iptal edildi (kod ' + result + ').');
+  if (!['0', '3010', '1641'].includes(result)) throw new Error(t.uninstallerFailed(result));
 }
 function roots() {
   const home = os.homedir();
@@ -69,11 +70,11 @@ function roots() {
   return [process.env.XDG_CONFIG_HOME || path.join(home, '.config'), process.env.XDG_CACHE_HOME || path.join(home, '.cache'), process.env.XDG_DATA_HOME || path.join(home, '.local/share'), path.join(home, '.var/app')];
 }
 export async function validatePath(root: string, target: string) {
-  if (!contained(root, target) || path.dirname(target) !== root) throw new Error('İzin verilen dizinin dışında.');
+  if (!contained(root, target) || path.dirname(target) !== root) throw new Error(t.outsideRoot);
   const stat = await fs.lstat(target);
-  if (stat.isSymbolicLink()) throw new Error('Sembolik bağlantılar temizlenmez.');
+  if (stat.isSymbolicLink()) throw new Error(t.symlink);
   const realRoot = await fs.realpath(root), realTarget = await fs.realpath(target);
-  if (!contained(realRoot, realTarget)) throw new Error('Yönlendirilmiş yol temizlenmez.');
+  if (!contained(realRoot, realTarget)) throw new Error(t.redirected);
   return stat;
 }
 async function sizeOf(target: string, budget = { count: 0 }): Promise<number> {
@@ -114,7 +115,7 @@ export async function scan(app: AppRecord, others: AppRecord[] = []): Promise<It
 export async function cleanItem(item: Item, backupDir: string) {
   // Permanent delete; fs.rm unlinks junctions and symlinks inside the folder instead of following them.
   if (item.kind === 'file') { await validatePath(item.root!, item.path); await fs.rm(item.path, { recursive: true }); return; }
-  if (!registryKeyOk(item.path)) throw new Error('Geçersiz kayıt defteri anahtarı.');
+  if (!registryKeyOk(item.path)) throw new Error(t.invalidRegistry);
   await fs.mkdir(backupDir, { recursive: true });
   const backup = path.join(backupDir, item.id + '-' + Date.now() + '.reg');
   await run('reg.exe', ['export', item.path, backup, '/y']);
@@ -123,26 +124,26 @@ export async function cleanItem(item: Item, backupDir: string) {
 }
 // One UAC prompt per call. The script travels inline, so no temp file exists for an unelevated process to swap.
 async function elevated(script: string) {
-  if (process.platform !== 'win32') throw new Error('Yönetici işlemi yalnızca Windows içindir.');
+  if (process.platform !== 'win32') throw new Error(t.windowsOnly);
   const encoded = Buffer.from("$ErrorActionPreference='Stop';" + script, 'utf16le').toString('base64');
-  if (encoded.length > 30000) throw new Error('Tek seferde çok fazla öğe var; daha azını seçin.');
+  if (encoded.length > 30000) throw new Error(t.tooMany);
   const out = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', `$ErrorActionPreference='Stop'; (Start-Process powershell.exe -Verb RunAs -Wait -PassThru -WindowStyle Hidden -ArgumentList '-NoProfile','-NonInteractive','-EncodedCommand','${encoded}').ExitCode`])
-    .catch(e => { throw new Error(/cancel|iptal/i.test(e.message) ? 'Yönetici izni verilmedi.' : e.message); });
+    .catch(e => { throw new Error(/cancel|iptal/i.test(e.message) ? t.elevationDenied : e.message); });
   return Number(out);
 }
 // Checkpoint-Computer needs admin. Windows silently skips it when a point exists from the last 24 hours (exit 2).
 export async function restorePoint(name: string) {
   const newest = '(Get-ComputerRestorePoint | Measure-Object SequenceNumber -Maximum).Maximum';
   const code = await elevated(`$n=${newest}; Checkpoint-Computer -Description ${quote('GoodbyeAPP: ' + String(name).slice(0, 80))} -RestorePointType APPLICATION_UNINSTALL; if (${newest} -le $n) { exit 2 }`)
-    .catch(e => { throw new Error('Sistem geri yükleme noktası oluşturulamadı. ' + e.message); });
+    .catch(e => { throw new Error(t.restoreFailed(e.message)); });
   if (code === 2) return 'skipped';
-  if (code) throw new Error('Sistem geri yükleme noktası oluşturulamadı (Sistem Koruması kapalı olabilir).');
+  if (code) throw new Error(t.restoreProtection);
   return 'created';
 }
 // Every plan item is re-validated before elevation: scan roots or the registered install folder, Software keys only.
 export async function elevatedOk(item: Item, app: AppRecord, others: AppRecord[]) {
-  if (item.kind === 'registry') { if (!registryKeyOk(item.path)) throw new Error('Geçersiz kayıt defteri anahtarı.'); return; }
-  if (item.kind !== 'file' || !(scanRoots(app).has(item.root!) || installDirOk(path.resolve(item.path), others))) throw new Error('İzin verilen dizinin dışında.');
+  if (item.kind === 'registry') { if (!registryKeyOk(item.path)) throw new Error(t.invalidRegistry); return; }
+  if (item.kind !== 'file' || !(scanRoots(app).has(item.root!) || installDirOk(path.resolve(item.path), others))) throw new Error(t.outsideRoot);
   await validatePath(item.root!, item.path);
 }
 const elevatedScript = (jobs: ElevatedJob[]) => `Add-Type -AssemblyName Microsoft.VisualBasic; $fs=[Microsoft.VisualBasic.FileIO.FileSystem]
@@ -160,7 +161,7 @@ export async function cleanElevated(items: Item[], app: AppRecord, others: AppRe
   }
   if (!jobs.length) return results;
   await fs.mkdir(backupDir, { recursive: true });
-  const error = await elevated(elevatedScript(jobs)).then(() => 'Yönetici izniyle de silinemedi.', e => e.message);
+  const error = await elevated(elevatedScript(jobs)).then(() => t.elevatedFailed, e => e.message);
   for (const job of jobs) results.push(await gone(job) ? { path: job.path, ok: true, backup: job.backup } : { path: job.path, ok: false, error });
   return results;
 }

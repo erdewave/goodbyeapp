@@ -6,6 +6,7 @@ import * as platform from './platform';
 import { loadIcons } from './icons';
 import { loadSizes } from './sizes';
 import * as files from './files';
+import { t, setLanguage } from './i18n';
 import type { AppRecord, CleanResult, Item } from './types';
 let iconPromise: Promise<Record<string, string>> | null, sizePromise: Promise<Record<string, number>> | null, fileScan: AbortController | null = null, found = new Set<string>();
 let win: BrowserWindow, catalog = new Map<string, AppRecord>(), plans = new Map<string, Item[]>(), busy = false;
@@ -24,15 +25,15 @@ async function refresh() {
   await save();
   return { apps: state.known.map(publicApp), platform: process.platform };
 }
-function getApp(id: unknown) { const a = typeof id === 'string' ? catalog.get(id) : undefined; if (!a) throw new Error('Uygulama bulunamadı. Listeyi yenileyin.'); return a; }
+function getApp(id: unknown) { const a = typeof id === 'string' ? catalog.get(id) : undefined; if (!a) throw new Error(t.appNotFound); return a; }
 function checkSender(event: IpcMainInvokeEvent) {
-  if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame?.url !== pathToFileURL(index).href) throw new Error('Yetkisiz istek.');
+  if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame?.url !== pathToFileURL(index).href) throw new Error(t.unauthorized);
 }
 const windowState = () => ({ maximized: win.isMaximized(), focused: win.isFocused(), platform: process.platform });
 function handle(name: string, fn: (...args: unknown[]) => unknown) {
   ipcMain.handle(name, async (event, ...args) => {
     checkSender(event);
-    if (busy) throw new Error('Devam eden işlemin bitmesini bekleyin.');
+    if (busy) throw new Error(t.busy);
     busy = true;
     try { return await fn(...args); } finally { busy = false; }
   });
@@ -49,7 +50,7 @@ app.whenReady().then(async () => {
       if (busy) return { blocked: true };
       win.close();
       return {};
-    } else throw new Error('Geçersiz pencere işlemi.');
+    } else throw new Error(t.invalidWindowAction);
     return windowState();
   });
   const notify = () => { if (!win.webContents.isDestroyed()) win.webContents.send('window:changed', windowState()); };
@@ -57,6 +58,7 @@ app.whenReady().then(async () => {
   win.on('close', event => { if (busy) event.preventDefault(); });
   win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   win.webContents.on('will-navigate', e => e.preventDefault());
+  ipcMain.handle('language', (event, code) => { checkSender(event); setLanguage(code); });
   handle('load', refresh);
   ipcMain.handle('icons', event => { checkSender(event); return iconPromise ||= loadIcons([...catalog.values()], app, nativeImage); });
   ipcMain.handle('sizes', event => { checkSender(event); return sizePromise ||= loadSizes([...catalog.values()]); });
@@ -66,7 +68,7 @@ app.whenReady().then(async () => {
   ipcMain.handle('drives', event => { checkSender(event); return files.listDrives(); });
   ipcMain.handle('scanFiles', async event => {
     checkSender(event);
-    if (fileScan) throw new Error('Tarama zaten sürüyor.');
+    if (fileScan) throw new Error(t.scanRunning);
     const controller = fileScan = new AbortController();
     try {
       const jobs = (await files.listDrives()).map(d => files.scanDrive(d.root, controller.signal));
@@ -77,14 +79,14 @@ app.whenReady().then(async () => {
     } finally { fileScan = null; }
   });
   ipcMain.handle('cancelFiles', event => { checkSender(event); fileScan?.abort(); });
-  ipcMain.handle('reveal', (event, target) => { checkSender(event); if (typeof target !== 'string' || !found.has(target)) throw new Error('Dosya tarama sonuçlarında yok.'); shell.showItemInFolder(target); });
+  ipcMain.handle('reveal', (event, target) => { checkSender(event); if (typeof target !== 'string' || !found.has(target)) throw new Error(t.notInScan); shell.showItemInFolder(target); });
   const others = (id: string) => [...catalog.values()].filter(o => !o.removed && o.id !== id);
   async function cleanTarget(id: unknown) {
     const target = getApp(id);
     const current = await platform.listApps();
-    if (current.some(a => a.id === target.id || a.name.toLocaleLowerCase() === target.name.toLocaleLowerCase() || (target.bundle && a.bundle === target.bundle))) throw new Error('Aynı uygulamanın yüklü bir kopyası var. Önce uygulamayı kaldırın.');
+    if (current.some(a => a.id === target.id || a.name.toLocaleLowerCase() === target.name.toLocaleLowerCase() || (target.bundle && a.bundle === target.bundle))) throw new Error(t.installedCopy);
     const plan = plans.get(target.id);
-    if (!plan) throw new Error('Önce kalıntıları tarayın.');
+    if (!plan) throw new Error(t.scanFirst);
     return { target, plan };
   }
   // Failed items stay in the plan so the elevated retry works only on them.
@@ -92,17 +94,17 @@ app.whenReady().then(async () => {
   handle('scan', async id => { const a = getApp(id); const items = await platform.scan(a, others(a.id)); plans.set(a.id, items); return items; });
   handle('uninstall', async (id, options) => {
     const target = getApp(id);
-    if (target.removed) throw new Error('Uygulama zaten kaldırılmış.');
+    if (target.removed) throw new Error(t.alreadyRemoved);
     const restore = (options as { restorePoint?: unknown } | undefined)?.restorePoint === true ? await platform.restorePoint(target.name).catch(e => e.message) : null; // A failed restore point does not block the uninstall.
     await platform.uninstall(target, shell);
     await refresh();
-    if (!getApp(id).removed) throw new Error('Uygulama hâlâ yüklü görünüyor. Kaldırıcıyı tamamlayıp listeyi yenileyin.');
+    if (!getApp(id).removed) throw new Error(t.stillInstalled);
     return { restore };
   });
   handle('clean', async (id, selected) => {
     const { target, plan } = await cleanTarget(id);
-    if (!Array.isArray(selected) || !selected.length || selected.length > 200) throw new Error('Temizlenecek öğeleri seçin.');
-    const items = [...new Set(selected)].map(key => { const item = plan.find(i => i.id === key); if (!item) throw new Error('Geçersiz seçim.'); return item; });
+    if (!Array.isArray(selected) || !selected.length || selected.length > 200) throw new Error(t.selectItems);
+    const items = [...new Set(selected)].map(key => { const item = plan.find(i => i.id === key); if (!item) throw new Error(t.invalidSelection); return item; });
     const results: CleanResult[] = [];
     for (const item of items) { try { const backup = await platform.cleanItem(item, backupDir()); results.push({ path: item.path, ok: true, backup }); } catch (e) { results.push({ path: item.path, ok: false, error: (e as Error).message }); } }
     keepFailed(target.id, items, results);

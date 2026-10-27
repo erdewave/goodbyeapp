@@ -8,7 +8,7 @@ const __dirname = import.meta.dirname;
 (async () => {
   const env = { ...process.env } as Record<string, string>; delete env.ELECTRON_RUN_AS_NODE; // OS environment values are always strings
   const executablePath = process.env.GOODBYEAPP_EXECUTABLE;
-  const instance = await electron.launch({ ...(executablePath ? { executablePath } : {}), args: executablePath ? ['--disable-gpu'] : ['.', '--disable-gpu'], env });
+  const instance = await electron.launch({ ...(executablePath ? { executablePath } : {}), args: executablePath ? ['--disable-gpu', '--lang=tr'] : ['.', '--disable-gpu', '--lang=tr'], env });
   try {
     const page = await instance.firstWindow();
     page.setDefaultTimeout(15000);

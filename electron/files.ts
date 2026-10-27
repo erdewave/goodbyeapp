@@ -10,10 +10,10 @@ const skip = new Set(['/proc', '/sys', '/dev', '/run', '/System/Volumes']);
 export async function listDrives() {
   if (process.platform === 'win32') {
     const disks: { DeviceID: string; VolumeName?: string; Size: number; FreeSpace: number }[] = JSON.parse(await ps("ConvertTo-Json -Compress -InputObject @(Get-CimInstance Win32_LogicalDisk | Where-Object { $_.DriveType -in 2,3 -and $_.Size } | Select-Object DeviceID,VolumeName,Size,FreeSpace)") || '[]');
-    return disks.map(d => ({ root: d.DeviceID + '\\', label: d.VolumeName || 'Yerel Disk', total: d.Size, free: d.FreeSpace }));
+    return disks.map(d => ({ root: d.DeviceID + '\\', label: d.VolumeName || '', total: d.Size, free: d.FreeSpace }));
   }
   const s = await fs.statfs('/');
-  return [{ root: '/', label: 'Sistem diski', total: s.blocks * s.bsize, free: s.bavail * s.bsize }];
+  return [{ root: '/', label: '', total: s.blocks * s.bsize, free: s.bavail * s.bsize }];
 }
 // Keeps only the largest files; hard links (same inode) count once.
 function trim(job: Job) {

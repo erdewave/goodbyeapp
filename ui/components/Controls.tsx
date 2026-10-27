@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ComponentProps } from 'react';
+import { t } from '../i18n';
 
 // Trash lid opens into a confirm/cancel panel; bin walls drop by transitioning the path's `d`.
 const hold = { deleted: 1400, kept: 600 };
@@ -14,11 +15,11 @@ export function DeleteButton({ onConfirm, onCancel, disabled, ...props }: Compon
         ? <svg key="done" className="transition-[opacity,scale] duration-220 ease-(--ease-del) starting:scale-60 starting:opacity-0" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className="[stroke-dasharray:1] transition-[stroke-dashoffset] duration-450 ease-(--ease-del) starting:[stroke-dashoffset:1]" d="M4 12.5 9.5 18 20 7" pathLength="1"/></svg>
         : <svg key="bin" className="overflow-visible transition-opacity duration-220 ease-(--ease-del) starting:opacity-0 group-data-[status=kept]/del:animate-settle" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path className={`transition-[d] duration-560 ease-(--ease-del) group-data-[state=open]/del:[d:path("M19_13.5v6.5a2_2_0_0_1-2_2H7a2_2_0_0_1-2-2V13.5")]`} d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><g className={`origin-[3px_6px] transition-transform duration-600 ease-[cubic-bezier(.34,1.1,.64,1)] [transform-box:view-box] group-data-[state=open]/del:-rotate-35`}><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></g></svg>}
     </button>
-    <span role="status" aria-live="polite" className="sr-only">{status === 'deleted' ? 'Onaylandı' : status === 'kept' ? 'Vazgeçildi' : ''}</span>
+    <span role="status" aria-live="polite" className="sr-only">{status === 'deleted' ? t.confirmed : status === 'kept' ? t.kept : ''}</span>
     <div className={`pointer-events-none absolute inset-y-0 right-0 flex w-[66px] -translate-x-1.5 items-center justify-center gap-2 rounded-[10px] bg-(--del-recess) opacity-0 transition-[opacity,translate] duration-300 ease-(--ease-del) group-data-[state=open]/del:pointer-events-auto group-data-[state=open]/del:translate-x-0 group-data-[state=open]/del:opacity-100 group-data-[state=open]/del:delay-140 group-data-[state=open]/del:duration-440`} inert={!open}>
       <span className="absolute top-1/2 -left-[5px] h-2.5 w-1.5 -translate-y-1/2 bg-(--del-recess) [clip-path:polygon(100%_0,0_50%,100%_100%)]" aria-hidden="true"/>
-      <button type="button" className={`${circle} [--delay:.14s]`} aria-label="Kaldırmayı onayla" onClick={() => resolve('deleted')}><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="var(--primary)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12.5 9.5 18 20 7"/></svg></button>
-      <button type="button" className={`${circle} [--delay:.21s]`} aria-label="Vazgeç" onClick={() => resolve('kept')}><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 6 18 18M18 6 6 18"/></svg></button>
+      <button type="button" className={`${circle} [--delay:.14s]`} aria-label={t.confirmUninstall} onClick={() => resolve('deleted')}><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="var(--primary)" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12.5 9.5 18 20 7"/></svg></button>
+      <button type="button" className={`${circle} [--delay:.21s]`} aria-label={t.cancel} onClick={() => resolve('kept')}><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 6 18 18M18 6 6 18"/></svg></button>
     </div>
   </div>;
 }

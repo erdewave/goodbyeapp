@@ -21,6 +21,7 @@ import { createPortal } from "react-dom";
 import { EASE_OUT } from "@/lib/ease";
 import { PresenceGate } from "@/lib/presence-gate";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 type CenterMorphModalContextValue = {
   open: boolean;
@@ -248,7 +249,7 @@ export function CenterMorphModalContent({
             <>
               <motion.button
                 type="button"
-                aria-label="Dismiss modal"
+                aria-label={t.close}
                 tabIndex={-1}
                 disabled={!dismissible}
                 initial={{ opacity: 0 }}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Tooltip } from '@/components/motion/tooltip';
 import type { WindowState } from './types';
+import { t } from './i18n';
 
 const desktop = window.desktopWindow;
 const button = 'grid h-full w-9 place-items-center text-muted-foreground transition-soft';
@@ -24,11 +25,11 @@ export function Titlebar() {
       await desktop?.[action]();
     } catch {}
   }
-  return <header id="titlebar" className="fixed inset-x-0 top-0 z-100 flex h-(--titlebar-height) items-center pl-[18px] text-foreground [-webkit-app-region:drag]" aria-label="Pencere başlık çubuğu">
-    <div className="ml-auto flex h-full shrink-0 [-webkit-app-region:no-drag]" aria-label="Pencere kontrolleri">
-      <Tooltip content="Küçült"><button type="button" id="window-minimize" className={`${button} hover:bg-accent`} aria-label="Pencereyi küçült" onClick={() => control('minimize')}><WindowIcon kind="minimize"/></button></Tooltip>
-      <Tooltip content={state.maximized ? 'Önceki boyuta dön' : 'Büyüt'}><button type="button" id="window-maximize" className={`${button} hover:bg-accent`} aria-label={state.maximized ? 'Önceki boyuta dön' : 'Pencereyi büyüt'} aria-pressed={state.maximized} onClick={() => control('maximize')}><WindowIcon kind={state.maximized ? 'restore' : 'maximize'}/></button></Tooltip>
-      <Tooltip content="Kapat"><button type="button" id="window-close" className={`${button} hover:bg-destructive hover:text-destructive-foreground`} aria-label="Pencereyi kapat" onClick={() => control('close')}><WindowIcon kind="close"/></button></Tooltip>
+  return <header id="titlebar" className="fixed inset-x-0 top-0 z-100 flex h-(--titlebar-height) items-center pl-[18px] text-foreground [-webkit-app-region:drag]" aria-label={t.titlebar}>
+    <div className="ml-auto flex h-full shrink-0 [-webkit-app-region:no-drag]" aria-label={t.windowControls}>
+      <Tooltip content={t.minimize}><button type="button" id="window-minimize" className={`${button} hover:bg-accent`} aria-label={t.minimizeWindow} onClick={() => control('minimize')}><WindowIcon kind="minimize"/></button></Tooltip>
+      <Tooltip content={state.maximized ? t.restoreDown : t.maximize}><button type="button" id="window-maximize" className={`${button} hover:bg-accent`} aria-label={state.maximized ? t.restoreDown : t.maximizeWindow} aria-pressed={state.maximized} onClick={() => control('maximize')}><WindowIcon kind={state.maximized ? 'restore' : 'maximize'}/></button></Tooltip>
+      <Tooltip content={t.close}><button type="button" id="window-close" className={`${button} hover:bg-destructive hover:text-destructive-foreground`} aria-label={t.closeWindow} onClick={() => control('close')}><WindowIcon kind="close"/></button></Tooltip>
     </div>
   </header>;
 }

@@ -8,6 +8,7 @@ import {
   type KeyboardEvent,
 } from "react";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 export type ThemePalette = {
   sidebar: string;
@@ -184,7 +185,7 @@ export function ThemeSelector({
   return (
     <div
       role="radiogroup"
-      aria-label="Theme"
+      aria-label={t.theme}
       aria-disabled={disabled || undefined}
       data-slot="theme-selector"
       {...props}

@@ -19,6 +19,7 @@ type Api = {
   scanFiles(): Promise<DriveReport[]>;
   cancelFiles(): Promise<void>;
   reveal(path: string): Promise<void>;
+  language(code: string): Promise<void>;
   onFilesProgress(callback: (reports: DriveReport[]) => void): () => void;
 };
 type DesktopWindow = {

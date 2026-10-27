@@ -30,6 +30,7 @@ import {
 import { createPortal } from "react-dom";
 import { EASE_OUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
+import { t } from "@/i18n";
 
 export type ToastStatus = "neutral" | "info" | "loading" | "success" | "error";
 export type ToastPosition =
@@ -404,7 +405,7 @@ const ToastItem = memo(function ToastItem({
             <button
               type="button"
               onClick={() => toast.onMinimizeChange?.(false)}
-              aria-label="Genişlet"
+              aria-label={t.expand}
               className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
             >
               <ChevronUp className="h-3.5 w-3.5" />
@@ -513,7 +514,7 @@ const ToastItem = memo(function ToastItem({
               <button
                 type="button"
                 onClick={() => toast.onMinimizeChange?.(true)}
-                aria-label="Küçült"
+                aria-label={t.minimize}
                 className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground"
               >
                 <Minus className="h-3.5 w-3.5" />
@@ -522,7 +523,7 @@ const ToastItem = memo(function ToastItem({
               <button
                 type="button"
                 onClick={() => onDismiss?.(toast.id)}
-                aria-label="Dismiss toast"
+                aria-label={t.dismiss}
                 className={cn(
                   "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground",
                   classNames?.close,
