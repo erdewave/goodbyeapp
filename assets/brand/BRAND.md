@@ -12,7 +12,7 @@ The symbol is a disk treemap: blocks sized like files on a drive (the file analy
 
 - `goodbyeapp-icon.svg` — app icon master: white treemap on a blue rounded square (512 grid, corner radius 115).
 - `goodbyeapp-mark.svg` — the symbol alone in solid blues, transparent background, for light surfaces.
-- `goodbyeapp-logo.svg` — horizontal lockup of the icon and the "GoodbyeAPP" wordmark. The wordmark is drawn from monoline round strokes, not a font, so it renders the same everywhere. It switches to a light color under `prefers-color-scheme: dark`, so one file works on GitHub in both themes.
+- `goodbyeapp-logo.svg` — horizontal lockup of the icon and the "GoodbyeAPP" wordmark. The wordmark is set in Plus Jakarta Sans ExtraBold (SIL Open Font License) with -2 % tracking, "APP" in brand blue, and converted to outlines, so it renders the same everywhere without the font. Both colors switch under `prefers-color-scheme: dark`, so one file works on GitHub in both themes.
 - `goodbyeapp-icon.png` (1024 px) and `goodbyeapp-icon.ico` (16–256 px) are exported from `goodbyeapp-icon.svg`. To rebuild the ICO, run `powershell -File assets/brand/build-icon.ps1`.
 - `png/` — icon at 16–1024 px, the mark at 1024 px and the lockup at 2400 px wide, each rendered straight from its SVG.
 - Keep at least the lifted block's width as clear space. Don't put the lifted block back in its slot. Don't add outlines or shadows.
@@ -25,6 +25,7 @@ The symbol is a disk treemap: blocks sized like files on a drive (the file analy
 | Blocks on the icon | `#FFFFFF` at 100 / 85 / 70 / 55 % |
 | Lifted block | `#8FD0FF` (icon), `#38BDF8` (mark) |
 | Mark blocks | `#1D4ED8`, `#3B6FF0`, `#6D94F5`, `#9DB8F8` |
-| Wordmark | `#1B1B1E` light, `#EDEDF0` dark |
+| Wordmark "Goodbye" | `#16181D` light, `#F1F2F4` dark |
+| Wordmark "APP" | `#2563EB` light, `#60A5FA` dark |
 
 Trademark and handle availability for "GoodbyeAPP" have not been verified.
