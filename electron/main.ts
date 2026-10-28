@@ -32,6 +32,8 @@ function getApp(id: unknown) { const a = typeof id === 'string' ? catalog.get(id
 function checkSender(event: IpcMainInvokeEvent) {
   if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame?.url !== pathToFileURL(index).href) throw new Error(t.unauthorized);
 }
+// Windows keeps the app's own buttons (frameless); macOS gets its traffic lights and Linux the system's overlay buttons.
+const windowChrome: Electron.BrowserWindowConstructorOptions = process.platform === 'win32' ? { frame: false } : { titleBarStyle: 'hidden', ...(process.platform === 'darwin' ? { trafficLightPosition: { x: 16, y: 11 } } : { titleBarOverlay: { height: 36 } }) };
 const windowState = () => ({ maximized: win.isMaximized(), focused: win.isFocused(), platform: process.platform });
 function handle(name: string, fn: (...args: unknown[]) => unknown) {
   ipcMain.handle(name, async (event, ...args) => {
@@ -43,7 +45,7 @@ function handle(name: string, fn: (...args: unknown[]) => unknown) {
 }
 app.whenReady().then(async () => {
   try { state = JSON.parse(await fs.readFile(dataFile(), 'utf8')); } catch { /* first launch */ }
-  win = new BrowserWindow({ width: 1240, height: 820, minWidth: 920, minHeight: 640, frame: false, icon: path.join(__dirname, '../assets/brand/goodbyeapp-icon.' + (process.platform === 'win32' ? 'ico' : 'png')), title: 'GoodbyeAPP', backgroundColor: '#ffffff', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  win = new BrowserWindow({ width: 1240, height: 820, minWidth: 920, minHeight: 640, ...windowChrome, icon: path.join(__dirname, '../assets/brand/goodbyeapp-icon.' + (process.platform === 'win32' ? 'ico' : 'png')), title: 'GoodbyeAPP', backgroundColor: '#ffffff', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   ipcMain.handle('window:state', event => { checkSender(event); return windowState(); });
   ipcMain.handle('window:control', (event, action) => {
     checkSender(event);
@@ -127,6 +129,8 @@ app.whenReady().then(async () => {
   // The clean runs outside the busy lock (like the disk scan) so the other tabs stay usable; only a rescan waits for it.
   let health = new Map<string, HealthItem>(), healthCleaning = false;
   handle('healthScan', async () => { if (healthCleaning) throw new Error(t.busy); const items = await scanHealth(); health = new Map(items.map(i => [i.id, i])); return items.map(({ files, dirs, ...rest }) => rest); });
+  // Reveals the first file the scan found for the item (its path can be a wildcard, so it is not revealed itself).
+  ipcMain.handle('healthReveal', (event, key) => { checkSender(event); const item = health.get(key as string); if (item?.kind !== 'files' || !item.files?.[0]) throw new Error(t.invalidSelection); shell.showItemInFolder(item.files[0]); });
   ipcMain.handle('healthClean', async (event, selected) => {
     checkSender(event);
     if (healthCleaning) throw new Error(t.busy);

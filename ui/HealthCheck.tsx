@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { AnimatePresence, motion, useReducedMotion } from 'motion/react';
 import { StatefulButton, type ButtonState } from '@/components/motion/button/stateful';
 import { Checkbox } from '@/components/motion/checkbox';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/motion/context-menu';
 import type { ToastInput } from '@/components/motion/animated-toast-stack';
 import { EASE_OUT } from '@/lib/ease';
-import { Globe, AppWindow, ListX, HeartPulse, Play, LayoutGrid, Monitor, Clapperboard, Wrench, ShoppingBag, MessageSquare, Download, SlidersHorizontal, ChevronDown } from 'lucide-react';
+import { Globe, AppWindow, ListX, HeartPulse, Play, LayoutGrid, Monitor, Clapperboard, Wrench, ShoppingBag, MessageSquare, Download, SlidersHorizontal, ChevronDown, Copy, FolderOpen } from 'lucide-react';
 import { t, locale } from './i18n';
 import type { HealthItem } from './types';
 
@@ -23,7 +24,7 @@ const grid = 'grid grid-cols-[28px_minmax(0,1fr)_96px_88px_32px] items-center ga
 const num = (n: number) => n.toLocaleString(locale);
 const bytes = (list: HealthItem[]) => list.reduce((s, i) => s + i.size, 0);
 const entries = (list: HealthItem[]) => list.reduce((s, i) => s + (i.count || 1), 0);
-// Long paths keep their tail, like CCleaner's detail list; the full path is in the tooltip.
+// Long paths keep their tail, like CCleaner's detail list.
 const short = (p: string) => { const parts = p.split('\\'); return parts.length > 4 ? '…\\' + parts.slice(-3).join('\\') : p; };
 function Bar({ value }: { value: number }) {
   return <span role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(value * 100)} className="mt-1.5 block h-1 overflow-hidden rounded-full bg-muted"><motion.i className="block h-full rounded-full bg-primary" initial={{ width: 0 }} animate={{ width: value * 100 + '%' }} transition={{ duration: 0.2, ease: EASE_OUT }}/></span>;
@@ -97,12 +98,16 @@ export function HealthCheck({ size, serial, busy, setBusy, toast }: { size: (n: 
               <button type="button" aria-expanded={expanded} aria-label={t.health.details(name)} className="grid size-7 place-items-center rounded-lg text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground"><ChevronDown size={15} className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}/></button>
             </div>
             <AnimatePresence initial={false}>{expanded && <motion.div key="list" {...collapse}><div className="mb-1 ml-[34px] border-l pl-2"><AnimatePresence initial={false}>{list.map(i => <motion.div key={i.id} {...collapse}>
-              <div className={`${grid} py-1.5`}>
+              <ContextMenu><ContextMenuTrigger><div className={`${grid} py-1.5`}>
                 {box([i], i.path)}
-                <div className="min-w-0"><p title={i.path} className="truncate text-[12px]">{short(i.path)}</p>{i.label && <p className="truncate text-[10px] text-muted-foreground">{i.label}</p>}{i.id in progress && <Bar value={progress[i.id]}/>}</div>
+                <div className="min-w-0"><p className="truncate text-[12px]">{short(i.path)}</p>{i.label && <p className="truncate text-[10px] text-muted-foreground">{i.label}</p>}{i.id in progress && <Bar value={progress[i.id]}/>}</div>
                 <span className="text-right text-[11px] text-muted-foreground tabular-nums">{num(i.count || 1)}</span>
                 <span className="text-right text-[11px] text-muted-foreground tabular-nums">{i.size ? size(i.size) : '—'}</span><span/>
-              </div>
+              </div></ContextMenuTrigger>
+                <ContextMenuContent ariaLabel={t.health.itemActions} className="min-w-0 p-0.5">
+                  {i.kind === 'files' && <ContextMenuItem onSelect={() => api!.healthReveal(i.id).catch((e: Error) => toast({ title: e.message, status: 'error' }))}><FolderOpen size={14}/>{t.revealExplorer}</ContextMenuItem>}
+                  <ContextMenuItem onSelect={() => navigator.clipboard.writeText(i.path).then(() => toast({ title: t.pathCopied, status: 'success' }))}><Copy size={14}/>{t.copyPath}</ContextMenuItem>
+                </ContextMenuContent></ContextMenu>
             </motion.div>)}</AnimatePresence></div></motion.div>}</AnimatePresence>
           </motion.div>;
         })}</AnimatePresence></div></motion.div>}</AnimatePresence>
