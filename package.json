@@ -54,7 +54,10 @@
     "mac": {
       "icon": "assets/brand/goodbyeapp-icon.png",
       "target": "dmg",
-      "category": "public.app-category.utilities"
+      "category": "public.app-category.utilities",
+      "extendInfo": {
+        "NSAppleEventsUsageDescription": "GoodbyeAPP asks Finder to move apps that need administrator permission to the Trash."
+      }
     },
     "dmg": {
       "artifactName": "${productName}-${version}-${arch}.${ext}"

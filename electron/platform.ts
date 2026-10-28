@@ -50,7 +50,8 @@ export async function listApps(): Promise<AppRecord[]> {
   return apps;
 }
 export async function uninstall(app: AppRecord, shell: Shell) {
-  if (process.platform === 'darwin') return shell.trashItem(app.location!);
+  // Root-owned apps (App Store, pkg installs) cannot be trashed by the user; Finder asks for the admin password instead.
+  if (process.platform === 'darwin') return shell.trashItem(app.location!).catch(() => run('osascript', ['-e', 'on run argv', '-e', 'tell application "Finder" to delete (POSIX file (item 1 of argv) as alias)', '-e', 'end run', app.location!]).then(() => {}));
   if (process.platform === 'linux') return run('flatpak', ['uninstall', '--noninteractive', '--' + app.scope, app.bundle!]);
   // Parse the registered executable without handing the string to a command shell.
   const command = app.command!.trim();
