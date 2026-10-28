@@ -6,8 +6,9 @@ import * as platform from './platform';
 import { loadIcons } from './icons';
 import { loadSizes } from './sizes';
 import * as files from './files';
+import { scanHealth, cleanHealth } from './health';
 import { t, setLanguage } from './i18n';
-import type { AppRecord, CleanResult, Item } from './types';
+import type { AppRecord, CleanResult, HealthItem, Item } from './types';
 import type { TreeNode } from './tree';
 let iconPromise: Promise<Record<string, string>> | null, sizePromise: Promise<Record<string, number>> | null, fileScan: AbortController | null = null, found = new Set<string>();
 let win: BrowserWindow, catalog = new Map<string, AppRecord>(), plans = new Map<string, Item[]>(), busy = false;
@@ -120,6 +121,19 @@ app.whenReady().then(async () => {
     const results = await platform.cleanElevated(plan, target, others(target.id), backupDir());
     keepFailed(target.id, plan, results);
     return { results };
+  });
+  // Health Check: the renderer picks ids from the last scan; paths and keys never come from it.
+  // The clean runs outside the busy lock (like the disk scan) so the other tabs stay usable; only a rescan waits for it.
+  let health = new Map<string, HealthItem>(), healthCleaning = false;
+  handle('healthScan', async () => { if (healthCleaning) throw new Error(t.busy); const items = await scanHealth(); health = new Map(items.map(i => [i.id, i])); return items.map(({ files, dirs, ...rest }) => rest); });
+  ipcMain.handle('healthClean', async (event, selected) => {
+    checkSender(event);
+    if (healthCleaning) throw new Error(t.busy);
+    if (!Array.isArray(selected) || !selected.length) throw new Error(t.selectItems);
+    const items = [...new Set(selected)].map(key => { const item = health.get(key); if (!item) throw new Error(t.invalidSelection); return item; });
+    healthCleaning = true;
+    try { return { results: await cleanHealth(items, backupDir(), p => { if (!win.webContents.isDestroyed()) win.webContents.send('health:progress', p); }) }; }
+    finally { healthCleaning = false; }
   });
   await win.loadFile(index);
 });

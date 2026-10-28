@@ -9,3 +9,4 @@ export type Item = { id: string; kind: 'file' | 'registry'; path: string; root?:
 export type CleanResult = { path: string; ok: boolean; backup?: string; error?: string };
 export type FileHit = { path: string; name?: string; size: number; ino: number; modified?: number };
 export type Job = { root: string; scanned: number; current: string; done: boolean; top: FileHit[]; min: number; mode: 'mft' | 'walk'; promise?: Promise<Job>; own?: Map<string, number>; big?: FileHit[]; floor?: number; tree?: TreeNode };
+export type HealthItem = { id: string; group: string; category: string; on: boolean; kind: 'files' | 'recycle' | 'value' | 'key'; path: string; label?: string; size: number; count?: number; key?: string; name?: string; files?: string[]; dirs?: string[] };
