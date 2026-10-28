@@ -27,6 +27,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
+import { Button } from "@/components/motion/button/base";
 import { EASE_OUT } from "@/lib/ease";
 import { cn } from "@/lib/utils";
 import { t } from "@/i18n";
@@ -43,6 +44,8 @@ export type ToastPosition =
 export type AnimatedToastAction = {
   label: ReactNode;
   onClick: (toast: AnimatedToast) => void;
+  /** Project addition: solid accent-colored button. */
+  primary?: boolean;
 };
 
 export type AnimatedToast = {
@@ -52,6 +55,8 @@ export type AnimatedToast = {
   status?: ToastStatus;
   icon?: ReactNode;
   action?: AnimatedToastAction;
+  /** Project addition: a second button, shown before `action`. */
+  secondaryAction?: AnimatedToastAction;
   duration?: number;
   dismissible?: boolean;
   createdAt?: number;
@@ -485,7 +490,7 @@ const ToastItem = memo(function ToastItem({
                   {toast.description ? (
                     <p
                       className={cn(
-                        "mt-0.5 line-clamp-2 text-xs leading-4 text-muted-foreground",
+                        "mt-1 line-clamp-2 text-xs leading-4 text-muted-foreground",
                         classNames?.description,
                       )}
                     >
@@ -496,16 +501,36 @@ const ToastItem = memo(function ToastItem({
               </AnimatePresence>
 
               {toast.action ? (
-                <button
-                  type="button"
-                  onClick={() => toast.action?.onClick(toast)}
-                  className={cn(
-                    "mt-2 inline-flex h-7 items-center rounded-full bg-muted/80 px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted",
-                    classNames?.action,
+                <div className="mt-4 flex gap-2.5">
+                  {[toast.secondaryAction, toast.action].map((action, i) =>
+                    action ? (
+                      <motion.div
+                        key={i}
+                        initial={reduce ? { opacity: 0 } : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.24, delay: 0.12 + i * 0.06, ease: EASE_OUT }}
+                      >
+                        <Button
+                          size="sm"
+                          variant={action.primary ? "primary" : "secondary"}
+                          ripple
+                          pressScale={1}
+                          onClick={() => action.onClick(toast)}
+                          className={cn(
+                            "border-0 px-4",
+                            !action.primary &&
+                              (action === toast.secondaryAction
+                                ? "bg-primary/10 text-primary hover:bg-primary/15"
+                                : "bg-muted/80 text-foreground hover:bg-muted"),
+                            classNames?.action,
+                          )}
+                        >
+                          {action.label}
+                        </Button>
+                      </motion.div>
+                    ) : null,
                   )}
-                >
-                  {toast.action.label}
-                </button>
+                </div>
               ) : null}
             </div>
 
