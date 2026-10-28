@@ -68,6 +68,8 @@ function App() {
   const [paletteOpen, setPaletteOpen] = useState(false), [spot, setSpot] = useState<string | null>(null), [fileSpot, setFileSpot] = useState<{ path: string } | null>(null), [bigFiles, setBigFiles] = useState<FileHit[]>([]);
   const [restorePoint, setRestorePoint] = useState(() => localStorage.getItem('restorePoint') === '1');
   useEffect(() => { localStorage.setItem('restorePoint', restorePoint ? '1' : '0'); }, [restorePoint]);
+  const [autoUpdate, setAutoUpdate] = useState(() => localStorage.getItem('autoUpdate') !== '0'), [version, setVersion] = useState(''), [updateCheck, setUpdateCheck] = useState<ButtonState>('idle'), updateReady = useRef(false);
+  useEffect(() => { localStorage.setItem('autoUpdate', autoUpdate ? '1' : '0'); }, [autoUpdate]);
   useEffect(() => {
     const media = matchMedia('(prefers-color-scheme: dark)');
     const apply = () => document.documentElement.classList.toggle('dark', theme === 'dark' || (theme === 'system' && media.matches));
@@ -112,7 +114,7 @@ function App() {
   }, [jobs, mini, toast]);
   async function load() {
     if (!api) throw new Error(t.noBridge);
-    const result = await api.load(); setApps(result.apps); setLoaded(true);
+    const result = await api.load(); setApps(result.apps); setVersion(result.version); setLoaded(true);
     const generation = ++iconGeneration.current;
     // Merge: an uninstalled app's icon file is gone on refresh, but its wizard still shows the logo read earlier.
     api.icons().then(next => { if (generation === iconGeneration.current) setIcons(old => ({ ...old, ...next })); }).catch(() => {});
@@ -120,7 +122,25 @@ function App() {
     return result.apps;
   }
   useEffect(() => { task(load); }, []);
+  useEffect(() => {
+    if (!api) return;
+    const off = api.onUpdate(({ version, ready }) => { updateReady.current = ready; toast.dismissToast('update'); toast.showToast({ id: 'update', title: t.update.title(version), description: ready ? t.update.ready : t.update.available, status: 'info', duration: 0,
+      action: { label: ready ? t.update.install : t.update.download, onClick: () => { api.installUpdate().catch((e: Error) => toast.showToast({ title: e.message, status: 'error' })); } } }); });
+    if (autoUpdate) api.checkUpdate().catch(() => {}); // a failed launch check stays silent; the next launch retries
+    return off;
+  }, []);
   const job = review ? jobs[review] : undefined, detail = job?.app ?? null, candidates = job?.candidates ?? [], results = job?.results ?? [];
+  // Manual check from Settings. Downloads show a progress toast until the 'update' event (ready) replaces it.
+  async function checkUpdate() {
+    setUpdateCheck('loading');
+    try {
+      const found = await api.checkUpdate();
+      setUpdateCheck(found ? 'idle' : 'success');
+      if (!found) toast.showToast({ title: t.update.upToDateToast, status: 'success' });
+      else if (found.downloading && !updateReady.current) { toast.dismissToast('update'); toast.showToast({ id: 'update', title: t.update.title(found.version), description: t.update.downloading, status: 'loading', duration: 0 }); }
+    } catch (e) { setUpdateCheck('error'); toast.showToast({ title: (e as Error).message, status: 'error' }); }
+    setTimeout(() => setUpdateCheck('idle'), 1500);
+  }
   async function act(fn: () => Promise<void>, after?: () => void) {
     setBusy(true); setAction('loading');
     try { await serial(fn); setAction('success'); setTimeout(() => { setAction('idle'); after?.(); }, 700); }
@@ -165,7 +185,7 @@ function App() {
       </section>
       <section id="files-view" className="animate-content-in" hidden={view !== 'files'}><LargeFiles size={size} spot={fileSpot} onFiles={setBigFiles} onError={text => toast.showToast({ title: text, status: 'error' })}/></section>
       <section id="health-view" className="animate-content-in" hidden={view !== 'health'}><HealthCheck size={size} serial={serial} busy={busy} setBusy={setBusy} toast={toast.showToast}/></section>
-      <section id="settings-view" className="animate-content-in" hidden={view !== 'settings'}><div className="px-2 py-6"><h2 className="mb-[18px] text-[13px] font-medium tracking-[-.3px]">{t.preferences}</h2><div className="border-b pt-[19px] pb-6 [&_h3]:text-[12px] [&_h3]:font-medium"><h3 id="theme-label">{t.appearance}</h3><ThemeSelector aria-labelledby="theme-label" className="mt-4" themes={themeOptions()} value={theme} onChange={setTheme}/></div><div className={settingRow}><div><h3 id="accent-label">{t.accent}</h3></div><RadioGroup orientation="horizontal" aria-labelledby="accent-label" value={accent} onValueChange={setAccent} className="gap-3">{accents.map(([key, light, dark]) => <Tooltip key={key} content={t.accents[key]}><span className="inline-flex" data-accent={key}><RadioGroupItem value={key} aria-label={t.accents[key]} className="p-1" controlClassName="border-transparent bg-(--swatch) hover:border-transparent dark:bg-(--swatch-dark)" indicatorClassName="-inset-1 border-2 border-foreground bg-transparent" style={{ '--swatch': light, '--swatch-dark': dark } as CSSProperties}/></span></Tooltip>)}</RadioGroup></div><div className={settingRow}><div><h3>{t.language}</h3></div><Select value={language} onValueChange={l => changeLanguage(l as Language)} className="w-44"><SelectTrigger className="py-1.5 text-[12px]"><SelectValue/></SelectTrigger><SelectContent>{languages.map(l => <SelectItem key={l} value={l} className="text-[12px]">{languageLabel(l)}</SelectItem>)}</SelectContent></Select></div><div className={settingRow}><div><h3>{t.restorePoint}</h3><p className="mt-1 text-[11px] text-muted-foreground">{t.restorePointNote}</p></div><Switch ariaLabel={t.restorePointToggle} checked={restorePoint} onCheckedChange={setRestorePoint}/></div><div className={settingRow}><div><h3>{t.backups}</h3></div><Button disabled={busy} id="backups" variant="secondary" size="sm" onClick={() => task(() => api.backups())}><FolderOpen size={15}/>{t.openBackups}</Button></div></div></section>
+      <section id="settings-view" className="animate-content-in" hidden={view !== 'settings'}><div className="px-2 py-6"><h2 className="mb-[18px] text-[13px] font-medium tracking-[-.3px]">{t.preferences}</h2><div className="border-b pt-[19px] pb-6 [&_h3]:text-[12px] [&_h3]:font-medium"><h3 id="theme-label">{t.appearance}</h3><ThemeSelector aria-labelledby="theme-label" className="mt-4" themes={themeOptions()} value={theme} onChange={setTheme}/></div><div className={settingRow}><div><h3 id="accent-label">{t.accent}</h3></div><RadioGroup orientation="horizontal" aria-labelledby="accent-label" value={accent} onValueChange={setAccent} className="gap-3">{accents.map(([key, light, dark]) => <Tooltip key={key} content={t.accents[key]}><span className="inline-flex" data-accent={key}><RadioGroupItem value={key} aria-label={t.accents[key]} className="p-1" controlClassName="border-transparent bg-(--swatch) hover:border-transparent dark:bg-(--swatch-dark)" indicatorClassName="-inset-1 border-2 border-foreground bg-transparent" style={{ '--swatch': light, '--swatch-dark': dark } as CSSProperties}/></span></Tooltip>)}</RadioGroup></div><div className={settingRow}><div><h3>{t.language}</h3></div><Select value={language} onValueChange={l => changeLanguage(l as Language)} className="w-44"><SelectTrigger className="py-1.5 text-[12px]"><SelectValue/></SelectTrigger><SelectContent>{languages.map(l => <SelectItem key={l} value={l} className="text-[12px]">{languageLabel(l)}</SelectItem>)}</SelectContent></Select></div><div className={settingRow}><div><h3>{t.restorePoint}</h3><p className="mt-1 text-[11px] text-muted-foreground">{t.restorePointNote}</p></div><Switch ariaLabel={t.restorePointToggle} checked={restorePoint} onCheckedChange={setRestorePoint}/></div><div className={settingRow}><div><h3>{t.backups}</h3></div><Button disabled={busy} id="backups" variant="secondary" size="sm" onClick={() => task(() => api.backups())}><FolderOpen size={15}/>{t.openBackups}</Button></div><div className={settingRow}><div><h3>{t.update.auto}</h3><p className="mt-1 text-[11px] text-muted-foreground">{t.update.autoNote}</p></div><Switch ariaLabel={t.update.autoToggle} checked={autoUpdate} onCheckedChange={setAutoUpdate}/></div><div className={settingRow}><div><h3>{t.update.version}</h3><p id="app-version" className="mt-1 text-[11px] text-muted-foreground">GoodbyeAPP {version}</p></div><StatefulButton id="check-update" variant="secondary" size="sm" state={updateCheck} loadingText={t.update.checking} successText={t.update.upToDate} errorText={t.retry} onClick={checkUpdate}>{t.update.check}</StatefulButton></div></div></section>
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-5 flex justify-center"><AnimatePresence>{scrolled && <motion.div key="to-top" className="pointer-events-auto rounded-full border bg-popover p-1 shadow-lg" initial={reduce ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.96 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={reduce ? { opacity: 0 } : { opacity: 0, y: 12, scale: 0.96 }} transition={reduce ? { duration: 0.1 } : SPRING_LAYOUT}><Button variant="ghost" size="sm" className="rounded-full" onClick={() => scroller.current?.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' })}><ArrowUp size={14}/>{t.toTop}</Button></motion.div>}</AnimatePresence></div>
     </main>

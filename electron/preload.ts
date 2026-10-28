@@ -7,9 +7,10 @@ const listen = (channel: string) => (callback: (payload: unknown) => void) => {
   return () => ipcRenderer.removeListener(channel, listener);
 };
 contextBridge.exposeInMainWorld('goodbyeapp', {
-  ...Object.fromEntries(['load', 'icons', 'sizes', 'scan', 'uninstall', 'clean', 'cleanElevated', 'backups', 'drives', 'scanFiles', 'cancelFiles', 'reveal', 'open', 'language', 'healthScan', 'healthClean'].map(method => [method, (...args: unknown[]) => invoke(method, ...args)])),
+  ...Object.fromEntries(['load', 'icons', 'sizes', 'scan', 'uninstall', 'clean', 'cleanElevated', 'backups', 'drives', 'scanFiles', 'cancelFiles', 'reveal', 'open', 'language', 'healthScan', 'healthClean', 'checkUpdate', 'installUpdate'].map(method => [method, (...args: unknown[]) => invoke(method, ...args)])),
   onFilesProgress: listen('files:progress'),
   onHealthProgress: listen('health:progress'),
+  onUpdate: listen('update'),
 });
 contextBridge.exposeInMainWorld('desktopWindow', {
   getState: () => ipcRenderer.invoke('window:state'),

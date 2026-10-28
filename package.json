@@ -48,6 +48,9 @@
       "target": "nsis",
       "requestedExecutionLevel": "requireAdministrator"
     },
+    "nsis": {
+      "artifactName": "${productName}-Setup-${version}.${ext}"
+    },
     "mac": {
       "icon": "assets/brand/goodbyeapp-icon.png",
       "target": "dmg",
@@ -63,11 +66,17 @@
     },
     "asarUnpack": [
       "electron/icons.ps1"
-    ]
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "erdewave",
+      "repo": "goodbyeapp"
+    }
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
     "clsx": "^2.1.1",
+    "electron-updater": "^6.8.11",
     "lucide-react": "1.59.0",
     "motion": "^14.6.0",
     "react": "19.3.1",

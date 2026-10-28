@@ -9,7 +9,7 @@ export type DriveReport = { root: string; scanned: number; current: string; done
 export type HealthItem = { id: string; group: string; category: string; on: boolean; path: string; label?: string; size: number; count?: number };
 export type WindowState = { maximized: boolean; focused: boolean; platform?: string };
 type Api = {
-  load(): Promise<{ apps: InstalledApp[]; platform: string }>;
+  load(): Promise<{ apps: InstalledApp[]; platform: string; version: string }>;
   icons(): Promise<Record<string, string>>;
   sizes(): Promise<Record<string, number>>;
   scan(id: string): Promise<Candidate[]>;
@@ -27,6 +27,10 @@ type Api = {
   healthClean(selected: string[]): Promise<{ results: CleanResult[] }>;
   onFilesProgress(callback: (reports: DriveReport[]) => void): () => void;
   onHealthProgress(callback: (progress: { id: string; done: number; total: number; ok?: boolean }) => void): () => void;
+  checkUpdate(): Promise<{ version: string; downloading: boolean } | null>;
+  installUpdate(): Promise<void>;
+  // ready: downloaded and installable now; false on macOS, where installUpdate opens the release page instead.
+  onUpdate(callback: (update: { version: string; ready: boolean }) => void): () => void;
 };
 type DesktopWindow = {
   getState(): Promise<WindowState>;

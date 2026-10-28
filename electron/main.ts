@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, shell, nativeImage, type IpcMainInvokeEvent } from 'electron';
+import { autoUpdater } from 'electron-updater';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
@@ -25,7 +26,7 @@ async function refresh() {
   catalog = new Map(state.known.map(a => [a.id, a]));
   iconPromise = sizePromise = null;
   await save();
-  return { apps: state.known.map(publicApp), platform: process.platform };
+  return { apps: state.known.map(publicApp), platform: process.platform, version: app.getVersion() };
 }
 function getApp(id: unknown) { const a = typeof id === 'string' ? catalog.get(id) : undefined; if (!a) throw new Error(t.appNotFound); return a; }
 function checkSender(event: IpcMainInvokeEvent) {
@@ -134,6 +135,38 @@ app.whenReady().then(async () => {
     healthCleaning = true;
     try { return { results: await cleanHealth(items, backupDir(), p => { if (!win.webContents.isDestroyed()) win.webContents.send('health:progress', p); }) }; }
     finally { healthCleaning = false; }
+  });
+  // Updates come from GitHub Releases. Windows (NSIS) and Linux (AppImage) download in the background and install on the
+  // user's go-ahead, or on quit; macOS needs a Developer ID signature to install in place, so it only links to the release.
+  // The renderer starts every check (on launch when automatic updates are on, or from Settings), so no event is sent
+  // before it listens. Returns the new version, or null when up to date; the toast arrives over 'update'.
+  const sendUpdate = (version: string, ready: boolean) => { if (!win.webContents.isDestroyed()) win.webContents.send('update', { version, ready }); };
+  autoUpdater.on('error', () => { /* reported by checkUpdate's rejection instead */ });
+  ipcMain.handle('checkUpdate', async event => {
+    checkSender(event);
+    if (!app.isPackaged) return null;
+    try {
+      if (process.platform === 'darwin') {
+        const res = await fetch('https://api.github.com/repos/erdewave/goodbyeapp/releases/latest');
+        if (!res.ok) throw new Error();
+        // ponytail: "differs from the latest tag" stands in for "older"; packaged builds only come from releases.
+        const tag = (await res.json()).tag_name;
+        if (typeof tag !== 'string' || tag === 'v' + app.getVersion()) return null;
+        sendUpdate(tag.replace(/^v/, ''), false);
+        return { version: tag.replace(/^v/, ''), downloading: false };
+      }
+      const result = await autoUpdater.checkForUpdates();
+      if (!result?.isUpdateAvailable) return null;
+      const { version } = result.updateInfo; // a repeat check reuses the running or cached download
+      result.downloadPromise?.then(() => sendUpdate(version, true), () => {});
+      return { version, downloading: true };
+    } catch { throw new Error(t.updateFailed); }
+  });
+  ipcMain.handle('installUpdate', event => {
+    checkSender(event);
+    if (process.platform === 'darwin') return shell.openExternal('https://github.com/erdewave/goodbyeapp/releases/latest');
+    if (busy || healthCleaning) throw new Error(t.busy); // the close handler would block the quit mid-operation anyway
+    autoUpdater.quitAndInstall(true, true);
   });
   await win.loadFile(index);
 });
