@@ -1,5 +1,6 @@
 # Builds and checks the macOS and Linux packages, then attaches them to a release.
-# Windows is built by hand, so it is not in the matrix.
+# Windows is built by hand, so it is not in the matrix: upload its latest.yml and .exe.blockmap with the installer,
+# or installed copies will not see the update. Linux's latest-linux.yml is uploaded here; macOS reads the release tag instead.
 name: Packages
 
 on:
@@ -20,7 +21,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux, os: ubuntu-latest, exe: 'release/linux-unpacked/goodbyeapp', files: 'release/*.AppImage', flags: '-c.linux.target=AppImage' }
+          - { name: linux, os: ubuntu-latest, exe: 'release/linux-unpacked/goodbyeapp', files: 'release/*.AppImage', update: 'release/latest-linux.yml', flags: '-c.linux.target=AppImage' }
           - { name: mac-arm64, os: macos-latest, exe: 'release/mac-arm64/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg', flags: '-c.mac.identity=- -c.mac.hardenedRuntime=false' }
           - { name: mac-x64, os: macos-15-intel, exe: 'release/mac/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg', flags: '-c.mac.identity=- -c.mac.hardenedRuntime=false' }
     runs-on: ${{ matrix.os }}
@@ -77,4 +78,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag || github.ref_name }}
-        run: gh release upload "$TAG" ${{ matrix.files }} --clobber
+        run: gh release upload "$TAG" ${{ matrix.files }} ${{ matrix.update }} --clobber
