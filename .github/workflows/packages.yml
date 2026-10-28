@@ -51,7 +51,9 @@ jobs:
             sleep 10
           done
           exit 1
+      # The check itself takes seconds; a hung quit on a flaky runner would otherwise hold the job for hours.
       - name: Launch the packaged app
+        timeout-minutes: 5
         shell: bash
         run: |
           export GOODBYEAPP_EXECUTABLE="$PWD/${{ matrix.exe }}"

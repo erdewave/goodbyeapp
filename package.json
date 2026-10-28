@@ -56,6 +56,9 @@
       "target": "dmg",
       "category": "public.app-category.utilities"
     },
+    "dmg": {
+      "artifactName": "${productName}-${version}-${arch}.${ext}"
+    },
     "linux": {
       "icon": "assets/brand/goodbyeapp-icon.png",
       "target": [
