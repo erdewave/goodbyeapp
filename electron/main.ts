@@ -129,6 +129,8 @@ app.whenReady().then(async () => {
   // The clean runs outside the busy lock (like the disk scan) so the other tabs stay usable; only a rescan waits for it.
   let health = new Map<string, HealthItem>(), healthCleaning = false;
   handle('healthScan', async () => { if (healthCleaning) throw new Error(t.busy); const items = await scanHealth(); health = new Map(items.map(i => [i.id, i])); return items.map(({ files, dirs, ...rest }) => rest); });
+  // Reveals the first file the scan found for the item (its path can be a wildcard, so it is not revealed itself).
+  ipcMain.handle('healthReveal', (event, key) => { checkSender(event); const item = health.get(key as string); if (item?.kind !== 'files' || !item.files?.[0]) throw new Error(t.invalidSelection); shell.showItemInFolder(item.files[0]); });
   ipcMain.handle('healthClean', async (event, selected) => {
     checkSender(event);
     if (healthCleaning) throw new Error(t.busy);

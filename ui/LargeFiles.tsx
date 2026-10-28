@@ -3,7 +3,7 @@ import { Button } from '@/components/motion/button/base';
 import { Treemap, TreemapPlot, TreemapTooltip, type TreemapNode } from '@/components/charts/treemap';
 import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from '@/components/motion/context-menu';
 import { iconBox } from './AppIcon';
-import { HardDrive, ChevronRight, ExternalLink, File, FolderOpen, Play, Square } from 'lucide-react';
+import { HardDrive, ChevronRight, Copy, ExternalLink, File, FolderOpen, Play, Square } from 'lucide-react';
 import type { Drive, DriveReport, FileHit } from './types';
 import { t } from './i18n';
 
@@ -28,14 +28,15 @@ const FileRow = memo(function FileRow({ f, max, size, selected, onSelect }: { f:
   </div>;
 });
 // Right-click menu shared by the map and the list; the caller records the target path in `menuPath` first.
-const PathMenu = ({ menuPath, run, children }: { menuPath: { current: string }; run: (kind: 'open' | 'reveal', path: string) => void; children: ReactElement<HTMLAttributes<HTMLElement>> }) =>
+const PathMenu = ({ menuPath, run, copy, children }: { menuPath: { current: string }; run: (kind: 'open' | 'reveal', path: string) => void; copy: (path: string) => void; children: ReactElement<HTMLAttributes<HTMLElement>> }) =>
   <ContextMenu><ContextMenuTrigger>{children}</ContextMenuTrigger>
     <ContextMenuContent ariaLabel={t.fileActions} className="min-w-0 p-0.5">
       <ContextMenuItem onSelect={() => run('open', menuPath.current)}><ExternalLink size={14}/>{t.openFile}</ContextMenuItem>
       <ContextMenuItem onSelect={() => run('reveal', menuPath.current)}><FolderOpen size={14}/>{t.revealExplorer}</ContextMenuItem>
+      <ContextMenuItem onSelect={() => copy(menuPath.current)}><Copy size={14}/>{t.copyPath}</ContextMenuItem>
     </ContextMenuContent></ContextMenu>;
 // Tree tab: each disk is a node, its largest files are the leaves. The scan starts in the background at app launch.
-export function LargeFiles({ size, spot, onFiles, onError }: { size: (n: number) => string; spot: { path: string } | null; onFiles: (files: FileHit[]) => void; onError: (text: string) => void }) {
+export function LargeFiles({ size, spot, onFiles, onError, onCopied }: { size: (n: number) => string; spot: { path: string } | null; onFiles: (files: FileHit[]) => void; onError: (text: string) => void; onCopied: () => void }) {
   const [drives, setDrives] = useState<Drive[]>([]), [reports, setReports] = useState<DriveReport[]>([]), [scanning, setScanning] = useState(false), started = useRef(false);
   useEffect(() => api?.onFilesProgress(setReports), []);
   useEffect(() => onFiles(reports.flatMap(r => r.files)), [reports]);
@@ -54,7 +55,8 @@ export function LargeFiles({ size, spot, onFiles, onError }: { size: (n: number)
   errorRef.current = onError;
   // Map remainder areas end in \0; they stand for their folder.
   const run = useCallback((kind: 'open' | 'reveal', p: string) => api![kind](p.replace(/\0$/, '')).catch((e: Error) => errorRef.current(e.message)), []);
-  const byRoot = Object.fromEntries(reports.map(r => [r.root, r]));
+  const copy = useCallback((p: string) => navigator.clipboard.writeText(p.replace(/\0$/, '')).then(onCopied), []);
+  const byRoot =Object.fromEntries(reports.map(r => [r.root, r]));
   // Built once per scan: a fresh data array on every render would rebuild and relayout the whole map on each hover.
   const maps = useMemo(() => Object.fromEntries(drives.flatMap(d => {
     const tree = reports.find(r => r.root === d.root)?.tree;
@@ -72,9 +74,9 @@ export function LargeFiles({ size, spot, onFiles, onError }: { size: (n: number)
           <div className="text-right"><small className={note}>{size(used)} / {size(d.total)}</small><span className={`${bar} h-1`}><i className={fill} style={{ width: used / d.total * 100 + '%' }}/></span></div>
         </summary>
         {maps[d.root] && <Treemap className="mb-3 ml-[15px] pl-3.5" data={maps[d.root]} label={t.diskMap} formatValue={size} activeId={selected} onActiveChange={setSelected}>
-          <PathMenu menuPath={menuPath} run={run}><div className="overflow-hidden rounded-2xl border bg-popover p-1.5" onContextMenu={e => { const id = tileAt(e); if (id) { menuPath.current = id; setSelected(id); } else e.preventDefault(); }} onKeyDown={e => { const id = tileAt(e); if (id) menuPath.current = id; }}><TreemapPlot className="h-96 rounded-xl"/></div></PathMenu>
+          <PathMenu menuPath={menuPath} run={run} copy={copy}><div className="overflow-hidden rounded-2xl border bg-popover p-1.5" onContextMenu={e => { const id = tileAt(e); if (id) { menuPath.current = id; setSelected(id); } else e.preventDefault(); }} onKeyDown={e => { const id = tileAt(e); if (id) menuPath.current = id; }}><TreemapPlot className="h-96 rounded-xl"/></div></PathMenu>
           <TreemapTooltip>{item => item.label || item.path.at(-2)}</TreemapTooltip></Treemap>}
-        <PathMenu menuPath={menuPath} run={run}><div className="mb-2.5 ml-[15px] pl-3.5" onContextMenu={e => { const path = (e.target as Element).closest<HTMLElement>('[data-path]')?.dataset.path; if (path) { menuPath.current = path; setSelected(path); } else e.preventDefault(); }}>{r?.files.map(f => <FileRow key={f.path} f={f} max={max} size={size} selected={f.path === selected} onSelect={setSelected}/>)}</div></PathMenu>
+        <PathMenu menuPath={menuPath} run={run} copy={copy}><div className="mb-2.5 ml-[15px] pl-3.5" onContextMenu={e => { const path = (e.target as Element).closest<HTMLElement>('[data-path]')?.dataset.path; if (path) { menuPath.current = path; setSelected(path); } else e.preventDefault(); }}>{r?.files.map(f => <FileRow key={f.path} f={f} max={max} size={size} selected={f.path === selected} onSelect={setSelected}/>)}</div></PathMenu>
       </details>;
     })}</div>
   </>;

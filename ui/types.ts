@@ -6,7 +6,7 @@ export type CleanResult = { path: string; ok: boolean; error?: string; backup?: 
 export type Drive = { root: string; label: string; total: number; free: number };
 export type FileHit = { path: string; name: string; size: number };
 export type DriveReport = { root: string; scanned: number; current: string; done: boolean; mode: 'mft' | 'walk'; files: FileHit[]; tree?: TreemapGroup };
-export type HealthItem = { id: string; group: string; category: string; on: boolean; path: string; label?: string; size: number; count?: number };
+export type HealthItem = { id: string; group: string; category: string; on: boolean; kind: 'files' | 'recycle' | 'value' | 'key'; path: string; label?: string; size: number; count?: number };
 export type WindowState = { maximized: boolean; focused: boolean; platform?: string };
 type Api = {
   load(): Promise<{ apps: InstalledApp[]; platform: string; version: string }>;
@@ -24,6 +24,7 @@ type Api = {
   open(path: string): Promise<void>;
   language(code: string): Promise<void>;
   healthScan(): Promise<HealthItem[]>;
+  healthReveal(id: string): Promise<void>;
   healthClean(selected: string[]): Promise<{ results: CleanResult[] }>;
   onFilesProgress(callback: (reports: DriveReport[]) => void): () => void;
   onHealthProgress(callback: (progress: { id: string; done: number; total: number; ok?: boolean }) => void): () => void;
