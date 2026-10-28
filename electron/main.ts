@@ -32,6 +32,8 @@ function getApp(id: unknown) { const a = typeof id === 'string' ? catalog.get(id
 function checkSender(event: IpcMainInvokeEvent) {
   if (event.sender !== win.webContents || event.senderFrame !== win.webContents.mainFrame || event.senderFrame?.url !== pathToFileURL(index).href) throw new Error(t.unauthorized);
 }
+// Windows keeps the app's own buttons (frameless); macOS gets its traffic lights and Linux the system's overlay buttons.
+const windowChrome: Electron.BrowserWindowConstructorOptions = process.platform === 'win32' ? { frame: false } : { titleBarStyle: 'hidden', ...(process.platform === 'darwin' ? { trafficLightPosition: { x: 16, y: 11 } } : { titleBarOverlay: { height: 36 } }) };
 const windowState = () => ({ maximized: win.isMaximized(), focused: win.isFocused(), platform: process.platform });
 function handle(name: string, fn: (...args: unknown[]) => unknown) {
   ipcMain.handle(name, async (event, ...args) => {
@@ -43,7 +45,7 @@ function handle(name: string, fn: (...args: unknown[]) => unknown) {
 }
 app.whenReady().then(async () => {
   try { state = JSON.parse(await fs.readFile(dataFile(), 'utf8')); } catch { /* first launch */ }
-  win = new BrowserWindow({ width: 1240, height: 820, minWidth: 920, minHeight: 640, frame: false, icon: path.join(__dirname, '../assets/brand/goodbyeapp-icon.' + (process.platform === 'win32' ? 'ico' : 'png')), title: 'GoodbyeAPP', backgroundColor: '#ffffff', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
+  win = new BrowserWindow({ width: 1240, height: 820, minWidth: 920, minHeight: 640, ...windowChrome, icon: path.join(__dirname, '../assets/brand/goodbyeapp-icon.' + (process.platform === 'win32' ? 'ico' : 'png')), title: 'GoodbyeAPP', backgroundColor: '#ffffff', autoHideMenuBar: true, webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true } });
   ipcMain.handle('window:state', event => { checkSender(event); return windowState(); });
   ipcMain.handle('window:control', (event, action) => {
     checkSender(event);
