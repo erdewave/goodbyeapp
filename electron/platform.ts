@@ -10,9 +10,9 @@ import { t } from './i18n';
 type UninstallEntry = { DisplayName: string; DisplayVersion?: string; Publisher?: string; EstimatedSize?: number; UninstallString: string; DisplayIcon?: string; InstallLocation?: string; PSPath: string };
 type ElevatedJob = { kind: Item['kind']; path: string; backup?: string };
 export const defined = <T>(value: T | null | undefined | false | ''): value is T => !!value;
-const run = (file: string, args: string[], options: ExecFileOptions = {}) => new Promise<string>((resolve, reject) => execFile(file, args, { windowsHide: true, maxBuffer: 16 * 1024 * 1024, ...options, encoding: 'utf8' }, (error, stdout, stderr) => error ? reject(new Error(stderr?.trim() || error.message)) : resolve(stdout.trim())));
+export const run = (file: string, args: string[], options: ExecFileOptions = {}) => new Promise<string>((resolve, reject) => execFile(file, args, { windowsHide: true, maxBuffer: 16 * 1024 * 1024, ...options, encoding: 'utf8' }, (error, stdout, stderr) => error ? reject(new Error(stderr?.trim() || error.message)) : resolve(stdout.trim())));
 export const ps = (script: string) => run('powershell.exe', ['-NoProfile', '-NonInteractive', '-EncodedCommand', Buffer.from("$ErrorActionPreference='Stop';[Console]::OutputEncoding=[Text.Encoding]::UTF8;" + script, 'utf16le').toString('base64')]);
-const quote = (value: unknown) => "'" + String(value).replaceAll("'", "''") + "'";
+export const quote = (value: unknown) => "'" + String(value).replaceAll("'", "''") + "'";
 const id = (value: string) => crypto.createHash('sha256').update(value).digest('hex').slice(0, 24);
 export function safeName(name: unknown): name is string { return typeof name === 'string' && name.length >= 3 && name.length < 180 && !/[\\/:*?"<>|\x00-\x1f]/.test(name) && !['.', '..', 'microsoft', 'windows', 'apple', 'google', 'shared', 'common', 'common files', 'software', 'temp', 'classes', 'policies', 'wow6432node', 'programs', 'packages', 'windowsapps', 'windows nt', 'desktop'].includes(name.toLowerCase()); }
 export function contained(root: string, target: string) { const rel = path.relative(path.resolve(root), path.resolve(target)); return !!rel && rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel); }
