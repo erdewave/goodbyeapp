@@ -4,7 +4,7 @@
 // (WKWebView, WebKitGTK), so there the check is that the process stays up and writes its start line to the log.
 import { chromium } from '@playwright/test';
 import assert from 'node:assert/strict';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -41,6 +41,13 @@ try {
   console.log(`launch ok: ${process.platform}/${process.arch}`);
 } catch (e) {
   console.error(e, exited ? `app exited: ${exited}` : '');
+  console.error(await fs.readFile(logFile, 'utf8').catch(() => `no log at ${logFile}`));
+  // Windows: what is on screen while the app still runs (an error dialog, say), for the CI artifact.
+  if (windows) {
+    const shot = path.join(import.meta.dirname, '../artifacts', 'launch-failure.png');
+    await fs.mkdir(path.dirname(shot), { recursive: true });
+    spawnSync('powershell.exe', ['-NoProfile', '-Command', `Add-Type -AssemblyName System.Windows.Forms, System.Drawing; $b = [Windows.Forms.Screen]::PrimaryScreen.Bounds; $i = New-Object Drawing.Bitmap $b.Width, $b.Height; [Drawing.Graphics]::FromImage($i).CopyFromScreen($b.Location, [Drawing.Point]::Empty, $b.Size); $i.Save('${shot}')`]);
+  }
   process.exitCode = 1;
 } finally {
   // A quit that never finishes would keep node alive after the check passed; kill the app instead.
