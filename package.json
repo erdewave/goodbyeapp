@@ -6,7 +6,7 @@
   "license": "MIT",
   "scripts": {
     "start": "npm run build && cargo run --manifest-path src-tauri/Cargo.toml",
-    "test": "tsc && cargo test --manifest-path src-tauri/Cargo.toml",
+    "test": "npm run build && cargo test --manifest-path src-tauri/Cargo.toml",
     "test:ui": "npm run build && node tests/ui-smoke.mts",
     "test:launch": "node tests/launch.mts",
     "pack": "tauri build --no-bundle",

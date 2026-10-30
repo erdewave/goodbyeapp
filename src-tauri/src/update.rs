@@ -6,6 +6,7 @@ use crate::{i18n::t, state::*, util::*};
 use serde_json::{json, Value};
 use std::sync::{atomic::Ordering::SeqCst, Arc};
 use tauri::{AppHandle, Emitter, State};
+#[cfg(not(target_os = "macos"))]
 use tauri_plugin_updater::UpdaterExt;
 
 const RELEASES: &str = "https://github.com/erdewave/goodbyeapp/releases/latest";
