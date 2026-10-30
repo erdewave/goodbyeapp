@@ -1,8 +1,7 @@
-// CI launch check for a packaged build: starts the app and fails when it dies or the page reports errors.
+// CI launch check for a packaged build: starts the app and fails when it dies or the page never talks to the backend.
 // Unlike ui-smoke.mts it assumes nothing about the installed apps, so it runs on any CI runner.
-// Windows: WebView2 takes a debugging port, so Playwright can open each tab. macOS and Linux have no such port
-// (WKWebView, WebKitGTK), so there the check is that the process stays up and writes its start line to the log.
-import { chromium } from '@playwright/test';
+// Release builds have no web inspector (WebView2's debugging port stays shut, WKWebView and WebKitGTK have none), so the
+// check reads the app log: the start line, then "ipc load", which only the running page sends.
 import assert from 'node:assert/strict';
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs/promises';
@@ -11,43 +10,34 @@ import path from 'node:path';
 
 const executable = process.env.GOODBYEAPP_EXECUTABLE;
 assert.ok(executable, 'GOODBYEAPP_EXECUTABLE is not set');
-const port = 9222, windows = process.platform === 'win32';
-const child = spawn(executable, [], { stdio: 'ignore', env: { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: `--remote-debugging-port=${port}` } });
+const windows = process.platform === 'win32';
+// The app's own stderr (GTK or WebKit warnings, a panic) lands in the CI log.
+const child = spawn(executable, [], { stdio: ['ignore', 'inherit', 'inherit'] });
 let exited: string | null = null;
 child.on('exit', (code, signal) => { exited = `code=${code} signal=${signal}`; });
 const logFile = path.join(process.platform === 'darwin' ? path.join(os.homedir(), 'Library/Application Support') : windows ? process.env.APPDATA! : process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'GoodbyeAPP/logs/app.log');
+const readLog = () => fs.readFile(logFile, 'utf8').catch(() => '');
+// The log keeps earlier sessions, so only the part from the last start line counts.
+const loaded = (log: string) => log.lastIndexOf(' start v') >= 0 && log.slice(log.lastIndexOf(' start v')).includes(' ipc load');
+// Windows: what is on screen while the app still runs (the window, or an error dialog), for the CI artifact.
+function screenshot(name: string) {
+  if (!windows || !process.env.CI) return; // a developer's desktop stays out of it
+  const shot = path.join(import.meta.dirname, '../artifacts', `${name}-${process.platform}-${process.arch}.png`);
+  spawnSync('powershell.exe', ['-NoProfile', '-Command', `New-Item -ItemType Directory -Force '${path.dirname(shot)}' | Out-Null; Add-Type -AssemblyName System.Windows.Forms, System.Drawing; $b = [Windows.Forms.Screen]::PrimaryScreen.Bounds; $i = New-Object Drawing.Bitmap $b.Width, $b.Height; [Drawing.Graphics]::FromImage($i).CopyFromScreen($b.Location, [Drawing.Point]::Empty, $b.Size); $i.Save('${shot}')`]);
+}
 try {
-  if (windows) {
-    // The debugging port opens a moment after the window does.
-    const browser = await (async () => { for (let i = 0; i < 60; i++) { try { return await chromium.connectOverCDP(`http://127.0.0.1:${port}`, { timeout: 5000 }); } catch { await new Promise(r => setTimeout(r, 1000)); } } throw new Error('WebView2 debugging port did not open'); })();
-    const page = browser.contexts()[0].pages()[0];
-    page.setDefaultTimeout(60000);
-    const errors: string[] = [];
-    page.on('pageerror', e => errors.push(e.message));
-    await page.waitForFunction(() => { const n = document.querySelector('#nav-count'); return n && n.textContent !== '—'; });
-    for (const view of ['files', 'settings', 'apps']) {
-      await page.locator(`[data-view="${view}"]`).click();
-      await page.locator(`#${view}-view`).waitFor({ state: 'visible' });
-    }
-    const dir = path.join(import.meta.dirname, '../artifacts');
-    await fs.mkdir(dir, { recursive: true });
-    await page.screenshot({ path: path.join(dir, `launch-${process.platform}-${process.arch}.png`) });
-    assert.deepEqual(errors, []);
-  } else {
-    await new Promise(r => setTimeout(r, 15000));
-    assert.equal(exited, null, `app exited: ${exited}`);
-    assert.match(await fs.readFile(logFile, 'utf8'), / start v/);
-  }
+  for (let i = 0; i < 60 && !exited && !loaded(await readLog()); i++) await new Promise(r => setTimeout(r, 1000));
+  assert.equal(exited, null, `app exited: ${exited}`);
+  assert.ok(loaded(await readLog()), 'the page did not load');
+  // A page that crashes right after loading would end the process; give it a moment.
+  await new Promise(r => setTimeout(r, 5000));
+  assert.equal(exited, null, `app exited: ${exited}`);
+  screenshot('launch');
   console.log(`launch ok: ${process.platform}/${process.arch}`);
 } catch (e) {
-  console.error(e, exited ? `app exited: ${exited}` : '');
-  console.error(await fs.readFile(logFile, 'utf8').catch(() => `no log at ${logFile}`));
-  // Windows: what is on screen while the app still runs (an error dialog, say), for the CI artifact.
-  if (windows) {
-    const shot = path.join(import.meta.dirname, '../artifacts', 'launch-failure.png');
-    await fs.mkdir(path.dirname(shot), { recursive: true });
-    spawnSync('powershell.exe', ['-NoProfile', '-Command', `Add-Type -AssemblyName System.Windows.Forms, System.Drawing; $b = [Windows.Forms.Screen]::PrimaryScreen.Bounds; $i = New-Object Drawing.Bitmap $b.Width, $b.Height; [Drawing.Graphics]::FromImage($i).CopyFromScreen($b.Location, [Drawing.Point]::Empty, $b.Size); $i.Save('${shot}')`]);
-  }
+  console.error(e);
+  console.error((await readLog()) || `no log at ${logFile}`);
+  screenshot('launch-failure');
   process.exitCode = 1;
 } finally {
   // A quit that never finishes would keep node alive after the check passed; kill the app instead.
