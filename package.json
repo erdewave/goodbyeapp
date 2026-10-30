@@ -11,6 +11,7 @@
     "test:launch": "node tests/launch.mts",
     "pack": "tauri build --no-bundle",
     "dist": "tauri build",
+    "tauri": "tauri",
     "build": "tsc && vite build"
   },
   "devDependencies": {
