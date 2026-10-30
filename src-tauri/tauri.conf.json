@@ -23,8 +23,11 @@
     ],
     "createUpdaterArtifacts": true,
     "icon": [
-      "../assets/brand/goodbyeapp-icon.ico",
-      "../assets/brand/goodbyeapp-icon.png"
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "../assets/brand/goodbyeapp-icon.ico"
     ],
     "category": "Utility",
     "licenseFile": "../LICENSE",
