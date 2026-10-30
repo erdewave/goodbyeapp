@@ -2,7 +2,7 @@
 // only ids that were produced by an earlier scan.
 use crate::{files, health, i18n::{self, t}, icons, log::log, platform, sizes, state::*, types::*, util::*};
 use serde_json::{json, Value};
-use std::{collections::HashSet, path::Path, sync::{atomic::{AtomicBool, Ordering::{Relaxed, SeqCst}}, Arc}, time::Duration};
+use std::{collections::{HashMap, HashSet}, path::Path, sync::{atomic::{AtomicBool, Ordering::{Relaxed, SeqCst}}, Arc}, time::Duration};
 use tauri::{AppHandle, Emitter, State};
 
 type S<'a> = State<'a, Arc<AppState>>;
@@ -10,28 +10,20 @@ async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> 
 
 #[tauri::command]
 pub async fn load(st: S<'_>) -> R<Value> { let st = st.inner().clone(); let _busy = st.lock()?; log("ipc load"); st.refresh().await }
-#[tauri::command]
-pub async fn icons(st: S<'_>) -> R<std::collections::HashMap<String, String>> {
-    let st = st.inner().clone();
-    log("ipc icons");
-    if let Some(cached) = st.inner.lock().unwrap().icons.clone() { return Ok(cached); }
-    let apps = st.inner.lock().unwrap().known.clone();
-    let result = blocking(move || icons::load_icons(&apps)).await?;
-    st.inner.lock().unwrap().icons = Some(result.clone());
-    log("icons done");
+// Icons and sizes are computed once per catalog; refresh() clears them.
+async fn cached<T: Clone + Send + 'static>(st: &Arc<AppState>, name: &str, slot: fn(&mut Inner) -> &mut Option<T>, load: fn(&[AppRecord]) -> T) -> R<T> {
+    log(&format!("ipc {name}"));
+    let (hit, apps) = { let mut inner = st.inner.lock().unwrap(); (slot(&mut inner).clone(), inner.known.clone()) };
+    if let Some(hit) = hit { return Ok(hit); }
+    let result = blocking(move || load(&apps)).await?;
+    *slot(&mut st.inner.lock().unwrap()) = Some(result.clone());
+    log(&format!("{name} done"));
     Ok(result)
 }
 #[tauri::command]
-pub async fn sizes(st: S<'_>) -> R<std::collections::HashMap<String, u64>> {
-    let st = st.inner().clone();
-    log("ipc sizes");
-    if let Some(cached) = st.inner.lock().unwrap().sizes.clone() { return Ok(cached); }
-    let apps = st.inner.lock().unwrap().known.clone();
-    let result = blocking(move || sizes::load_sizes(&apps)).await?;
-    st.inner.lock().unwrap().sizes = Some(result.clone());
-    log("sizes done");
-    Ok(result)
-}
+pub async fn icons(st: S<'_>) -> R<HashMap<String, String>> { cached(st.inner(), "icons", |i| &mut i.icons, icons::load_icons).await }
+#[tauri::command]
+pub async fn sizes(st: S<'_>) -> R<HashMap<String, u64>> { cached(st.inner(), "sizes", |i| &mut i.sizes, sizes::load_sizes).await }
 #[tauri::command]
 pub async fn scan(st: S<'_>, id: String) -> R<Vec<Item>> {
     let st = st.inner().clone(); let _busy = st.lock()?; log("ipc scan");
@@ -53,6 +45,11 @@ pub async fn uninstall(st: S<'_>, id: String, options: Option<Value>) -> R<Value
     if !st.app(&id)?.removed { return Err(t().still_installed.into()); }
     Ok(json!({ "restore": restore }))
 }
+// The renderer's ids, each once; one unknown id fails the whole request.
+fn picked<T>(selected: &[String], find: impl Fn(&str) -> Option<T>) -> R<Vec<T>> {
+    let mut seen = HashSet::new();
+    selected.iter().filter(|k| seen.insert(*k)).map(|k| find(k).ok_or_else(|| t().invalid_selection.to_string())).collect()
+}
 // The installed app list must no longer hold the target, and a scan must have produced the plan.
 async fn clean_target(st: &Arc<AppState>, id: &str) -> R<(AppRecord, Vec<Item>)> {
     let target = st.app(id)?;
@@ -66,8 +63,7 @@ pub async fn clean(st: S<'_>, id: String, selected: Vec<String>) -> R<Value> {
     let st = st.inner().clone(); let _busy = st.lock()?; log("ipc clean");
     let (target, plan) = clean_target(&st, &id).await?;
     if selected.is_empty() || selected.len() > 200 { return Err(t().select_items.into()); }
-    let mut seen = HashSet::new();
-    let items = selected.iter().filter(|k| seen.insert(*k)).map(|k| plan.iter().find(|i| &i.id == k).cloned().ok_or_else(|| t().invalid_selection.to_string())).collect::<R<Vec<Item>>>()?;
+    let items = picked(&selected, |k| plan.iter().find(|i| i.id == k).cloned())?;
     let backups = st.backup_dir();
     let results: Vec<CleanResult> = blocking({ let items = items.clone(); move || items.iter().map(|i| match platform::clean_item(i, &backups) { Ok(backup) => CleanResult::ok(&i.path, backup), Err(e) => CleanResult::fail(&i.path, e) }).collect() }).await?;
     st.keep_failed(&target.id, &items, &results);
@@ -152,8 +148,7 @@ pub fn health_reveal(st: S<'_>, key: String) -> R<()> {
 pub async fn health_clean(app: AppHandle, st: S<'_>, selected: Vec<String>) -> R<Value> {
     let st = st.inner().clone();
     if selected.is_empty() { return Err(t().select_items.into()); }
-    let mut seen = HashSet::new();
-    let items = { let inner = st.inner.lock().unwrap(); selected.iter().filter(|k| seen.insert(*k)).map(|k| inner.health.get(k).cloned().ok_or_else(|| t().invalid_selection.to_string())).collect::<R<Vec<HealthItem>>>()? };
+    let items = { let inner = st.inner.lock().unwrap(); picked(&selected, |k| inner.health.get(k).cloned())? };
     // swap claims the flag in one step, so two clean requests cannot both get through.
     if st.health_cleaning.swap(true, SeqCst) { return Err(t().busy.into()); }
     let backups = st.backup_dir();

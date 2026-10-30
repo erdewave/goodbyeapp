@@ -20,6 +20,4 @@ pub fn start(data_dir: &std::path::Path, version: &str) {
     log(&format!("start v{version} {}/{} logs={}", std::env::consts::OS, std::env::consts::ARCH, dir.display()));
     let previous_hook = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| { log(&format!("panic {info}")); previous_hook(info); }));
-    // A heartbeat shows how long the app lived before it died.
-    std::thread::spawn(|| loop { std::thread::sleep(std::time::Duration::from_secs(30)); log("alive"); });
 }

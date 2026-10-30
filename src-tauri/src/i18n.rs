@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 #[cfg_attr(windows, allow(dead_code))]
 pub struct Msgs {
-    pub app_not_found: &'static str, pub busy: &'static str, pub invalid_window_action: &'static str,
+    pub app_not_found: &'static str, pub busy: &'static str,
     pub scan_running: &'static str, pub not_in_scan: &'static str, pub installed_copy: &'static str, pub scan_first: &'static str,
     pub already_removed: &'static str, pub still_installed: &'static str, pub select_items: &'static str, pub invalid_selection: &'static str,
     pub unsupported_uninstall: &'static str, pub uninstaller_failed: fn(&str) -> String,
@@ -17,7 +17,7 @@ pub fn set_language(code: &str) { ENGLISH.store(code == "en", Ordering::Relaxed)
 pub fn t() -> &'static Msgs { if ENGLISH.load(Ordering::Relaxed) { &EN } else { &TR } }
 
 static TR: Msgs = Msgs {
-    app_not_found: "Uygulama bulunamadı. Listeyi yenileyin.", busy: "Devam eden işlemin bitmesini bekleyin.", invalid_window_action: "Geçersiz pencere işlemi.",
+    app_not_found: "Uygulama bulunamadı. Listeyi yenileyin.", busy: "Devam eden işlemin bitmesini bekleyin.",
     scan_running: "Tarama zaten sürüyor.", not_in_scan: "Dosya tarama sonuçlarında yok.", installed_copy: "Aynı uygulamanın yüklü bir kopyası var. Önce uygulamayı kaldırın.", scan_first: "Önce kalıntıları tarayın.",
     already_removed: "Uygulama zaten kaldırılmış.", still_installed: "Uygulama hâlâ yüklü görünüyor. Kaldırıcıyı tamamlayıp listeyi yenileyin.", select_items: "Temizlenecek öğeleri seçin.", invalid_selection: "Geçersiz seçim.",
     unsupported_uninstall: "Bu uygulamanın kaldırma komutu desteklenmiyor. Windows Ayarları üzerinden kaldırıp yeniden tarayın.", uninstaller_failed: |code| format!("Kaldırıcı tamamlanmadı veya iptal edildi (kod {code})."),
@@ -27,7 +27,7 @@ static TR: Msgs = Msgs {
     recycle_bin: "Geri Dönüşüm Kutusu", recycle_items: |n| format!("{n} öğe"), in_use: "Dosya kullanımda. Tarayıcıyı kapatıp tekrar deneyin.", update_failed: "Güncellemeler denetlenemedi. İnternet bağlantınızı kontrol edin.",
 };
 static EN: Msgs = Msgs {
-    app_not_found: "App not found. Refresh the list.", busy: "Wait for the current operation to finish.", invalid_window_action: "Invalid window action.",
+    app_not_found: "App not found. Refresh the list.", busy: "Wait for the current operation to finish.",
     scan_running: "A scan is already running.", not_in_scan: "The file is not in the scan results.", installed_copy: "An installed copy of the same app exists. Uninstall the app first.", scan_first: "Scan for leftovers first.",
     already_removed: "The app is already uninstalled.", still_installed: "The app still appears to be installed. Finish the uninstaller and refresh the list.", select_items: "Select items to clean.", invalid_selection: "Invalid selection.",
     unsupported_uninstall: "This app's uninstall command is not supported. Uninstall it from Windows Settings and scan again.", uninstaller_failed: |code| format!("The uninstaller did not finish or was cancelled (code {code})."),

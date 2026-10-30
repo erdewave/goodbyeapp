@@ -92,7 +92,7 @@ fn base_of(p: &str) -> String { Path::new(p).file_name().map_or(String::new(), |
 // Treemap from the walk: folder totals, with every file big enough to be a tile split out on its own.
 fn walk_tree(job: &Job, d: &Data) -> TreeNode {
     let mut own = d.own.clone();
-    for (path, size) in &d.big { *own.entry(parent_of(path)).or_insert(0) = own.get(&parent_of(path)).copied().unwrap_or(0).saturating_sub(*size); }
+    for (path, size) in &d.big { if let Some(bytes) = own.get_mut(&parent_of(path)) { *bytes = bytes.saturating_sub(*size); } }
     let keys: Vec<String> = own.keys().cloned().chain(d.big.iter().map(|f| f.0.clone())).collect();
     let index: HashMap<&String, usize> = keys.iter().enumerate().map(|(i, k)| (k, i)).collect();
     let root = index.get(&job.root).copied().unwrap_or(0);

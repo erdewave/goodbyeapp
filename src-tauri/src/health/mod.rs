@@ -20,9 +20,9 @@ pub fn glob(g: &str) -> Regex {
 fn expand_pattern(pattern: &str) -> Vec<PathBuf> {
     let home = s(&home());
     let with_home = if let Some(rest) = pattern.strip_prefix('~') { format!("{home}{rest}") } else { pattern.to_string() };
-    let mut missing = false;
-    let full = Regex::new(r"%([^%]+)%").unwrap().replace_all(&with_home, |c: &regex::Captures| std::env::var(&c[1]).unwrap_or_else(|_| { missing = true; String::new() })).into_owned();
-    if missing { return vec![]; }
+    // expand() leaves unknown %NAME% as written; such a folder does not exist on this machine.
+    let full = expand(&with_home);
+    if full.contains('%') { return vec![]; }
     let mut parts = full.split(['\\', '/']);
     let mut dirs = vec![PathBuf::from(format!("{}{}", parts.next().unwrap_or(""), std::path::MAIN_SEPARATOR))];
     for seg in parts.filter(|p| !p.is_empty()) {

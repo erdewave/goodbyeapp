@@ -9,14 +9,6 @@ fn lift(dir: &Path) -> PathBuf {
     let name = dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
     if Regex::new(r"(?i)^(bin|bin64|x64|x86|app-[\d.]+)$").unwrap().is_match(&name) { dir.parent().unwrap_or(dir).to_path_buf() } else { dir.to_path_buf() }
 }
-pub fn exe_of(command: &str) -> Option<String> {
-    let c = command.trim_start();
-    if let Some(rest) = c.strip_prefix('"') { let inner = &rest[..rest.find('"')?]; return inner.to_lowercase().ends_with(".exe").then(|| inner.to_string()); }
-    let b = c.as_bytes();
-    if !(b.len() > 2 && b[0].is_ascii_alphabetic() && b[1] == b':' && b[2] == b'\\') { return None; }
-    let lower = c.to_lowercase();
-    lower.match_indices(".exe").map(|(i, _)| i + 4).find(|&end| !c[..end].contains('"') && c[end..].chars().next().is_none_or(char::is_whitespace)).map(|end| c[..end].to_string())
-}
 fn words(text: &str) -> Vec<String> { text.to_lowercase().split(|c: char| !c.is_alphanumeric()).filter(|w| w.chars().count() >= 3).map(String::from).collect() }
 // Icon and uninstaller folders can belong to a launcher or package manager (Steam, Zero Install); trust them only
 // when their last segments name the app or its publisher. Short words must match whole ("team" is not "steam").
@@ -30,7 +22,7 @@ fn related(dir: &Path, app: &AppRecord) -> bool {
 // and installer caches named by a {GUID} never stand in for the installed app.
 pub fn app_folder(app: &AppRecord, others: &[AppRecord]) -> Option<PathBuf> {
     if let Some(l) = app.location.as_deref().filter(|l| !l.is_empty()) { return Some(l.into()); }
-    let guessed = [parse_icon_location(&app.icon_source).map(|i| i.0), app.command.as_deref().and_then(exe_of)].into_iter().flatten()
+    let guessed = [parse_icon_location(&app.icon_source).map(|i| i.0), app.command.as_deref().and_then(split_command).map(|c| c.0).filter(|e| e.get(1..3) == Some(r":\"))].into_iter().flatten()
         .filter_map(|file| Path::new(&file).parent().map(lift)).filter(|dir| related(dir, app));
     let guid = Regex::new(r"(?i)\{[0-9a-f-]{36}\}").unwrap();
     app.install_dir.iter().filter(|d| !d.is_empty()).map(PathBuf::from).chain(guessed).map(|d| resolve(&d)).find(|d| !guid.is_match(&s(d)) && install_dir_ok(d, others))
@@ -68,12 +60,6 @@ pub fn load_sizes(apps: &[AppRecord]) -> HashMap<String, u64> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[test]
-    fn finds_the_executable_in_an_uninstall_command() {
-        assert_eq!(exe_of(r#""C:\A B\un.exe" /S"#).as_deref(), Some(r"C:\A B\un.exe"));
-        assert_eq!(exe_of(r"C:\Tools\un.exe /S").as_deref(), Some(r"C:\Tools\un.exe"));
-        assert_eq!(exe_of(r"msiexec /x{1}"), None);
-    }
     #[test]
     fn short_words_must_match_whole() {
         let app = AppRecord { name: "Team Viewer".into(), vendor: Some("TeamViewer GmbH".into()), ..Default::default() };

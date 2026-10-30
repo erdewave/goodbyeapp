@@ -50,6 +50,17 @@ pub fn run(file: &str, args: &[&str]) -> R<String> {
     let text = |b: &[u8]| String::from_utf8_lossy(b).trim().to_string();
     if out.status.success() { Ok(text(&out.stdout)) } else { Err(Some(text(&out.stderr)).filter(|e| !e.is_empty()).unwrap_or_else(|| format!("exit {}", out.status.code().unwrap_or(-1)))) }
 }
+// First executable in a registered command, quoted or not; the rest is passed through as its arguments.
+pub fn split_command(command: &str) -> Option<(String, String)> {
+    let command = command.trim();
+    if let Some(rest) = command.strip_prefix('"') {
+        let end = rest.find('"')?;
+        return rest[..end].to_ascii_lowercase().ends_with(".exe").then(|| (rest[..end].to_string(), rest[end + 1..].trim().to_string()));
+    }
+    // ASCII lowering keeps byte offsets, so they still index the original string.
+    let end = command.to_ascii_lowercase().find(".exe")? + 4;
+    (end > 4).then(|| (command[..end].to_string(), command[end..].trim_start().to_string()))
+}
 pub fn quote(value: &str) -> String { format!("'{}'", value.replace('\'', "''")) }
 fn encode(script: &str) -> String {
     use base64::{engine::general_purpose::STANDARD, Engine};
@@ -67,6 +78,16 @@ mod tests {
     fn shared_names_and_traversal_are_not_candidates() {
         for n in ["..", "../escape", "Windows", "Microsoft", "Software", "a/b", "a\\b", "C:", ""] { assert!(!safe_name(n), "{n}"); }
         assert!(safe_name("Example App") && safe_name("org.example.App"));
+    }
+    #[test]
+    fn splits_registered_commands() {
+        assert_eq!(split_command(r#""C:\A B\unins000.exe" /SILENT"#), Some((r"C:\A B\unins000.exe".into(), "/SILENT".into())));
+        assert_eq!(split_command(r"C:\x\un.exe /S"), Some((r"C:\x\un.exe".into(), "/S".into())));
+        assert_eq!(split_command("MsiExec.exe /I{ABC}").map(|c| c.1), Some("/I{ABC}".into()));
+        assert_eq!(split_command("cmd /c thing"), None);
+        assert_eq!(split_command("msiexec /x{1}"), None);
+        // "İ" grows when lowered with to_lowercase; the split must still land on ".exe".
+        assert_eq!(split_command(r"C:\İİ\un.exe /S"), Some((r"C:\İİ\un.exe".into(), "/S".into())));
     }
     #[test]
     fn containment_rejects_roots_siblings_and_traversal() {

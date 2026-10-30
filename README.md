@@ -47,7 +47,7 @@ npm start
 Kendi kurulum dosyanızı üretmek için:
 
 ```sh
-npm run dist
+npm run tauri build
 ```
 
 Çıktı `src-tauri/target/release/bundle/` klasörüne yazılır: Windows'ta NSIS kurulumu, macOS'ta DMG, Linux'ta AppImage. Her paketi kendi işletim sisteminde derleyin. Otomatik güncelleme imzalıdır: `TAURI_SIGNING_PRIVATE_KEY` ortam değişkeni, `src-tauri/tauri.conf.json` içindeki genel anahtarın özel eşi olmalıdır (`npx tauri signer generate`).
@@ -112,8 +112,7 @@ Rust ([Tauri](https://tauri.app) 2) ve React 19, Vite, Tailwind CSS; arayüz bil
 | `npm run build` | Tip kontrolü yapar ve arayüzü `dist-ui` içine derler |
 | `npm test` | Tip kontrolü ve Rust birim testleri (yalnızca geçici test klasörlerinde, gerçek uygulama kaldırmaz) |
 | `npm run test:ui` | Windows'ta uygulamayı açıp arayüzü Playwright ile gezen testi çalıştırır |
-| `npm run pack` | Kurulum dosyası olmadan derler |
-| `npm run dist` | Kurulum dosyasını üretir |
+| `npm run tauri build` | Kurulum dosyasını üretir (`-- --no-bundle` ile kurulum dosyası olmadan derler) |
 
 Klasörler: `src-tauri/` Rust tarafı (komutlar `commands.rs`, sistem işlemleri `platform/`, disk taraması `files.rs` + `mft.rs`, Sağlık Kontrolü `health/`), `ui/` arayüz, `tests/` arayüz testleri, `assets/brand/` logo ve ikonlar ([marka rehberi](assets/brand/BRAND.md)).
 

@@ -9,8 +9,6 @@
     "test": "npm run build && cargo test --manifest-path src-tauri/Cargo.toml",
     "test:ui": "npm run build && node tests/ui-smoke.mts",
     "test:launch": "node tests/launch.mts",
-    "pack": "tauri build --no-bundle",
-    "dist": "tauri build",
     "tauri": "tauri",
     "build": "tsc && vite build"
   },
