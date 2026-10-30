@@ -29,7 +29,7 @@ pub fn list_apps() -> R<Vec<AppRecord>> {
 }
 pub fn uninstall(app: &AppRecord) -> R<()> {
     let Some((exe, mut args)) = split_command(app.command.as_deref().unwrap_or("")) else { return Err(t().unsupported_uninstall.into()) };
-    if exe.to_lowercase().ends_with("msiexec.exe") {
+    if exe.to_lowercase().trim_end_matches(".exe").ends_with("msiexec") {
         if let Some(i) = args.to_ascii_lowercase().match_indices("/i").map(|(i, _)| i).find(|&i| args[i + 2..].chars().next().is_some_and(|c| c.is_whitespace() || c == '{')) { args.replace_range(i..i + 2, "/X"); }
     }
     let list = if args.is_empty() { String::new() } else { format!("-ArgumentList {}", quote(&args)) };
