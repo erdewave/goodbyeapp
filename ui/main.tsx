@@ -1,3 +1,4 @@
+import './tauri';
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { DeleteButton } from './components/Controls';

@@ -25,8 +25,8 @@ export function Titlebar() {
       await desktop?.[action]();
     } catch {}
   }
-  return <header id="titlebar" className="fixed inset-x-0 top-0 z-100 flex h-(--titlebar-height) items-center pl-[18px] text-foreground [-webkit-app-region:drag]" aria-label={t.titlebar}>
-    {state.platform === 'win32' && <div className="ml-auto flex h-full shrink-0 [-webkit-app-region:no-drag]" aria-label={t.windowControls}>
+  return <header id="titlebar" data-tauri-drag-region className="fixed inset-x-0 top-0 z-100 flex h-(--titlebar-height) items-center pl-[18px] text-foreground" aria-label={t.titlebar}>
+    {state.platform === 'win32' && <div className="ml-auto flex h-full shrink-0" aria-label={t.windowControls}>
       <Tooltip content={t.minimize}><button type="button" id="window-minimize" className={`${button} hover:bg-accent`} aria-label={t.minimizeWindow} onClick={() => control('minimize')}><WindowIcon kind="minimize"/></button></Tooltip>
       <Tooltip content={state.maximized ? t.restoreDown : t.maximize}><button type="button" id="window-maximize" className={`${button} hover:bg-accent`} aria-label={state.maximized ? t.restoreDown : t.maximizeWindow} aria-pressed={state.maximized} onClick={() => control('maximize')}><WindowIcon kind={state.maximized ? 'restore' : 'maximize'}/></button></Tooltip>
       <Tooltip content={t.close}><button type="button" id="window-close" className={`${button} hover:bg-destructive hover:text-destructive-foreground`} aria-label={t.closeWindow} onClick={() => control('close')}><WindowIcon kind="close"/></button></Tooltip>

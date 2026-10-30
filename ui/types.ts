@@ -1,5 +1,5 @@
 import type { TreemapGroup } from '@/components/charts/treemap';
-// Shapes returned by the preload bridge (electron/preload.ts → electron/main.ts).
+// Shapes returned by the desktop bridge (ui/tauri.ts → the Rust commands in src-tauri/src/commands.rs).
 export type InstalledApp = { id: string; name: string; publisher: string; version: string; source: string; size: number; removed?: boolean };
 export type Candidate = { id: string; kind: 'registry' | 'file'; path: string; size?: number; reason?: string };
 export type CleanResult = { path: string; ok: boolean; error?: string; backup?: string };
@@ -40,5 +40,5 @@ type DesktopWindow = {
   close(): Promise<unknown>;
   onChange(callback: (state: WindowState) => void): () => void;
 };
-// Optional: the bridge is missing when the UI is opened outside Electron.
+// Optional: the bridge is missing when the UI is opened outside the desktop shell.
 declare global { interface Window { goodbyeapp?: Api; desktopWindow?: DesktopWindow } }

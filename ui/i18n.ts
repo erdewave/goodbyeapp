@@ -72,7 +72,7 @@ const en: typeof tr = {
 export const languages = ['system', 'tr', 'en'] as const;
 export type Language = typeof languages[number];
 export let language = (localStorage.getItem('language') || 'system') as Language, t = tr, locale = 'tr-TR';
-// 'system' follows the OS locale (Electron's navigator.language); anything not Turkish falls back to English.
+// 'system' follows the OS locale (the webview's navigator.language); anything not Turkish falls back to English.
 export function setLanguage(next: Language) {
   const code = next === 'system' ? (navigator.language.toLowerCase().startsWith('tr') ? 'tr' : 'en') : next;
   language = next; t = code === 'en' ? en : tr; locale = code === 'en' ? 'en-US' : 'tr-TR';

@@ -1,37 +1,37 @@
-// CI launch check for a packaged build: starts the app, opens each tab and fails on renderer errors.
+// CI launch check for a packaged build: starts the app and fails when it dies or the page never talks to the backend.
 // Unlike ui-smoke.mts it assumes nothing about the installed apps, so it runs on any CI runner.
-import { _electron as electron } from '@playwright/test';
+// Release builds have no web inspector (WebView2's debugging port stays shut, WKWebView and WebKitGTK have none), so the
+// check reads the app log: the start line, then "ipc load", which only the running page sends.
 import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
 
-const executablePath = process.env.GOODBYEAPP_EXECUTABLE;
-assert.ok(executablePath, 'GOODBYEAPP_EXECUTABLE is not set');
-const env = { ...process.env } as Record<string, string>; delete env.ELECTRON_RUN_AS_NODE; env.ELECTRON_ENABLE_LOGGING = '1';
-const app = await electron.launch({ executablePath, args: ['--disable-gpu', '--no-sandbox', '--lang=en'], env });
-app.process().on('exit', (code, signal) => console.error(`app exited: code=${code} signal=${signal}`));
+const executable = process.env.GOODBYEAPP_EXECUTABLE;
+assert.ok(executable, 'GOODBYEAPP_EXECUTABLE is not set');
+// The app's own stderr (GTK or WebKit warnings, a panic) lands in the CI log.
+const child = spawn(executable, [], { stdio: ['ignore', 'inherit', 'inherit'] });
+let exited: string | null = null;
+child.on('exit', (code, signal) => { exited = `code=${code} signal=${signal}`; });
+const logFile = path.join(process.platform === 'darwin' ? path.join(os.homedir(), 'Library/Application Support') : process.platform === 'win32' ? process.env.APPDATA! : process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'), 'GoodbyeAPP/logs/app.log');
+const readLog = () => fs.readFile(logFile, 'utf8').catch(() => '');
+// The log keeps earlier sessions, so only the part from the last start line counts.
+const loaded = (log: string) => log.lastIndexOf(' start v') >= 0 && log.slice(log.lastIndexOf(' start v')).includes(' ipc load');
 try {
-  const page = await app.firstWindow();
-  page.setDefaultTimeout(60000);
-  const errors: string[] = [];
-  page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => console.error('page:', m.text()));
-  await page.waitForFunction(() => { const n = document.querySelector('#nav-count'); return n && n.textContent !== '—'; }).catch(async e => { console.error('page text:', await page.locator('body').innerText().catch(() => '(page gone)')); throw e; });
-  for (const view of ['files', 'settings', 'apps']) {
-    await page.locator(`[data-view="${view}"]`).click();
-    await page.locator(`#${view}-view`).waitFor({ state: 'visible' });
-  }
-  const dir = path.join(import.meta.dirname, '../artifacts');
-  await fs.mkdir(dir, { recursive: true });
-  await page.screenshot({ path: path.join(dir, `launch-${process.platform}-${process.arch}.png`) });
-  assert.deepEqual(errors, []);
+  for (let i = 0; i < 60 && !exited && !loaded(await readLog()); i++) await new Promise(r => setTimeout(r, 1000));
+  assert.equal(exited, null, `app exited: ${exited}`);
+  assert.ok(loaded(await readLog()), 'the page did not load');
+  // A page that crashes right after loading would end the process; give it a moment.
+  await new Promise(r => setTimeout(r, 5000));
+  assert.equal(exited, null, `app exited: ${exited}`);
   console.log(`launch ok: ${process.platform}/${process.arch}`);
 } catch (e) {
   console.error(e);
+  console.error((await readLog()) || `no log at ${logFile}`);
   process.exitCode = 1;
 } finally {
-  // A quit that never finishes (seen on macos-15-intel) would keep node alive after the check passed; kill the app instead.
-  const quit = await Promise.race([app.close().then(() => true), new Promise<boolean>(r => setTimeout(r, 15000, false))]);
-  if (!quit) { console.error('app did not quit in 15s, killing it'); app.process().kill('SIGKILL'); }
+  // A quit that never finishes would keep node alive after the check passed; kill the app instead.
+  child.kill('SIGKILL');
   process.exit(process.exitCode ?? 0);
 }

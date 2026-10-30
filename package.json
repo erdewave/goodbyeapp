@@ -4,85 +4,28 @@
   "description": "Uygulama kaldırma ve kalıntı temizleme",
   "author": "GoodbyeAPP",
   "license": "MIT",
-  "main": "dist-electron/main.js",
   "scripts": {
-    "start": "npm run build && electron .",
-    "test": "npm run build:electron && tsc -p tsconfig.test.json && node --test tests/*.test.mts",
+    "start": "npm run build && cargo run --manifest-path src-tauri/Cargo.toml",
+    "test": "npm run build && cargo test --manifest-path src-tauri/Cargo.toml",
     "test:ui": "npm run build && node tests/ui-smoke.mts",
     "test:launch": "node tests/launch.mts",
-    "pack": "npm run build && electron-builder --dir",
-    "dist": "npm run build && electron-builder",
-    "build:electron": "tsc -p tsconfig.electron.json",
-    "build": "tsc && npm run build:electron && vite build"
+    "tauri": "tauri",
+    "build": "tsc && vite build"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "@tailwindcss/vite": "4.3.3",
+    "@tauri-apps/cli": "^2.12.4",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@vitejs/plugin-react": "6.1.2",
-    "electron": "44.9.0",
-    "electron-builder": "26.15.3",
     "tailwindcss": "4.3.3",
     "typescript": "7.0.2",
     "vite": "8.3.4"
   },
-  "build": {
-    "appId": "app.goodbyeapp.desktop",
-    "productName": "GoodbyeAPP",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist-electron/**/*",
-      "!dist-electron/**/*.d.ts",
-      "electron/icons.ps1",
-      "dist-ui/**/*",
-      "licenses/**/*",
-      "assets/brand/goodbyeapp-icon.png",
-      "assets/brand/goodbyeapp-icon.ico",
-      "package.json"
-    ],
-    "win": {
-      "icon": "assets/brand/goodbyeapp-icon.ico",
-      "target": "nsis",
-      "requestedExecutionLevel": "requireAdministrator"
-    },
-    "nsis": {
-      "artifactName": "${productName}-Setup-${version}.${ext}"
-    },
-    "mac": {
-      "icon": "assets/brand/goodbyeapp-icon.png",
-      "target": "dmg",
-      "category": "public.app-category.utilities",
-      "extendInfo": {
-        "NSAppleEventsUsageDescription": "GoodbyeAPP asks Finder to move apps that need administrator permission to the Trash."
-      }
-    },
-    "dmg": {
-      "artifactName": "${productName}-${version}-${arch}.${ext}"
-    },
-    "linux": {
-      "icon": "assets/brand/goodbyeapp-icon.png",
-      "target": [
-        "AppImage",
-        "deb"
-      ],
-      "category": "Utility"
-    },
-    "asarUnpack": [
-      "electron/icons.ps1"
-    ],
-    "publish": {
-      "provider": "github",
-      "owner": "erdewave",
-      "repo": "goodbyeapp"
-    }
-  },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
     "clsx": "^2.1.1",
-    "electron-updater": "^6.8.11",
     "lucide-react": "1.59.0",
     "motion": "^14.6.0",
     "react": "19.3.1",

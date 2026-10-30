@@ -1,6 +1,5 @@
-# Builds and checks the macOS and Linux packages, then attaches them to a release.
-# Windows is built by hand, so it is not in the matrix: upload its latest.yml and .exe.blockmap with the installer,
-# or installed copies will not see the update. Linux's latest-linux.yml is uploaded here; macOS reads the release tag instead.
+# Tests, builds and launch-checks the Windows, macOS and Linux packages, then attaches them to a release together with
+# latest.json, which installed copies read to update themselves (the signature comes from the TAURI_SIGNING_PRIVATE_KEY secret).
 name: Packages
 
 on:
@@ -9,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing release tag to build and attach the packages to. Empty only keeps them as workflow artifacts.
+        description: Existing release tag to build and attach the packages to. Empty only checks that everything builds.
         required: false
 
 permissions:
@@ -21,9 +20,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { name: linux, os: ubuntu-latest, exe: 'release/linux-unpacked/goodbyeapp', files: 'release/*.AppImage', update: 'release/latest-linux.yml', flags: '-c.linux.target=AppImage' }
-          - { name: mac-arm64, os: macos-latest, exe: 'release/mac-arm64/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg', flags: '-c.mac.identity=- -c.mac.hardenedRuntime=false' }
-          - { name: mac-x64, os: macos-15-intel, exe: 'release/mac/GoodbyeAPP.app/Contents/MacOS/GoodbyeAPP', files: 'release/*.dmg', flags: '-c.mac.identity=- -c.mac.hardenedRuntime=false' }
+          - { name: windows, os: windows-latest, exe: 'src-tauri/target/release/goodbyeapp.exe', bundles: nsis }
+          - { name: linux, os: ubuntu-latest, exe: 'src-tauri/target/release/goodbyeapp', bundles: appimage }
+          - { name: mac-arm64, os: macos-latest, exe: 'src-tauri/target/release/goodbyeapp', bundles: dmg }
+          - { name: mac-x64, os: macos-15-intel, exe: 'src-tauri/target/release/goodbyeapp', bundles: dmg }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -33,51 +33,39 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
-      - name: Install Xvfb
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Install Linux libraries
         if: matrix.name == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y xvfb
+        run: sudo apt-get update && sudo apt-get install -y libwebkit2gtk-4.1-dev libssl-dev librsvg2-dev patchelf xvfb
+      - run: npm ci
       - run: npm test
-      # .deb needs an author email in package.json, so Linux ships the AppImage only for now.
-      # macOS gets an ad-hoc signature (Apple Silicon will not run a bundle with none) and no hardened
-      # runtime, whose library validation would reject Electron's frameworks under an ad-hoc signature.
-      # hdiutil sometimes fails to eject the disk image on macOS runners, so building is retried.
-      - name: Package
-        shell: bash
-        run: |
-          npm run build
-          for attempt in 1 2 3; do
-            npx electron-builder --publish never ${{ matrix.flags }} && exit 0
-            sleep 10
-          done
-          exit 1
+      # macOS gets an ad-hoc signature: Apple Silicon will not run a bundle with none. tauri-action also uploads latest.json.
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: '-'
+        with:
+          tagName: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/v') && github.ref_name) || '' }}
+          releaseDraft: false
+          args: --bundles ${{ matrix.bundles }}
       # The check itself takes seconds; a hung quit on a flaky runner would otherwise hold the job for hours.
-      - name: Launch the packaged app
+      - name: Launch the built app
         timeout-minutes: 5
         shell: bash
         run: |
           export GOODBYEAPP_EXECUTABLE="$PWD/${{ matrix.exe }}"
           if [ "${{ matrix.name }}" = linux ]; then xvfb-run -a npm run test:launch; else npm run test:launch; fi
-      # The listing reads /Applications, which Linux has no equivalent of, so it gets its own check.
-      - name: Check the macOS app listing and signature
-        if: startsWith(matrix.name, 'mac')
-        shell: bash
-        run: |
-          node -e "require('./dist-electron/platform.js').listApps().then(a => { console.log(a.length + ' apps', a.slice(0, 3)); process.exit(a.length ? 0 : 1); })"
-          APP=$(dirname "$(dirname "$(dirname "${{ matrix.exe }}")")")
-          test -f "$APP/Contents/Resources/app.asar"
-          codesign --verify --deep --strict --verbose=2 "$APP"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: ${{ matrix.name }}
           path: |
-            ${{ matrix.files }}
-            artifacts/*.png
+            src-tauri/target/release/bundle/**/*.exe
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.AppImage
           if-no-files-found: warn
-      - name: Attach to the release
-        if: startsWith(github.ref, 'refs/tags/v') || inputs.tag != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ inputs.tag || github.ref_name }}
-        run: gh release upload "$TAG" ${{ matrix.files }} ${{ matrix.update }} --clobber
