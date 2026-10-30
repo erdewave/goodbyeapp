@@ -11,3 +11,6 @@ artifacts/
 /src-tauri/target/
 /src-tauri/gen/
 /.claude/skills/
+/.ignore
+/.mcp.json
+/AGENTS.md
