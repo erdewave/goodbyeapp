@@ -32,15 +32,16 @@ fn split_command(command: &str) -> Option<(String, String)> {
     let command = command.trim();
     if let Some(rest) = command.strip_prefix('"') {
         let end = rest.find('"')?;
-        return rest[..end].to_lowercase().ends_with(".exe").then(|| (rest[..end].to_string(), rest[end + 1..].trim().to_string()));
+        return rest[..end].to_ascii_lowercase().ends_with(".exe").then(|| (rest[..end].to_string(), rest[end + 1..].trim().to_string()));
     }
-    let end = command.to_lowercase().find(".exe")? + 4;
+    // ASCII lowering keeps byte offsets, so they still index the original string.
+    let end = command.to_ascii_lowercase().find(".exe")? + 4;
     (end > 4).then(|| (command[..end].to_string(), command[end..].trim_start().to_string()))
 }
 pub fn uninstall(app: &AppRecord) -> R<()> {
     let Some((exe, mut args)) = split_command(app.command.as_deref().unwrap_or("")) else { return Err(t().unsupported_uninstall.into()) };
     if exe.to_lowercase().ends_with("msiexec.exe") {
-        if let Some(i) = args.to_lowercase().match_indices("/i").map(|(i, _)| i).find(|&i| args[i + 2..].chars().next().is_some_and(|c| c.is_whitespace() || c == '{')) { args.replace_range(i..i + 2, "/X"); }
+        if let Some(i) = args.to_ascii_lowercase().match_indices("/i").map(|(i, _)| i).find(|&i| args[i + 2..].chars().next().is_some_and(|c| c.is_whitespace() || c == '{')) { args.replace_range(i..i + 2, "/X"); }
     }
     let list = if args.is_empty() { String::new() } else { format!("-ArgumentList {}", quote(&args)) };
     let code = ps(&format!("$p=Start-Process -FilePath {} {list} -PassThru -Wait; $p.ExitCode", quote(&exe)))?;
@@ -69,6 +70,8 @@ mod tests {
         assert_eq!(split_command(r"C:\x\un.exe /S"), Some((r"C:\x\un.exe".into(), "/S".into())));
         assert_eq!(split_command("MsiExec.exe /I{ABC}").map(|c| c.1), Some("/I{ABC}".into()));
         assert_eq!(split_command("cmd /c thing"), None);
+        // "İ" grows when lowered with to_lowercase; the split must still land on ".exe".
+        assert_eq!(split_command(r"C:\İİ\un.exe /S"), Some((r"C:\İİ\un.exe".into(), "/S".into())));
     }
     #[test]
     fn lists_installed_apps() { assert!(!list_apps().unwrap().is_empty()); }

@@ -151,11 +151,11 @@ pub fn health_reveal(st: S<'_>, key: String) -> R<()> {
 #[tauri::command]
 pub async fn health_clean(app: AppHandle, st: S<'_>, selected: Vec<String>) -> R<Value> {
     let st = st.inner().clone();
-    if st.health_cleaning.load(SeqCst) { return Err(t().busy.into()); }
     if selected.is_empty() { return Err(t().select_items.into()); }
     let mut seen = HashSet::new();
     let items = { let inner = st.inner.lock().unwrap(); selected.iter().filter(|k| seen.insert(*k)).map(|k| inner.health.get(k).cloned().ok_or_else(|| t().invalid_selection.to_string())).collect::<R<Vec<HealthItem>>>()? };
-    st.health_cleaning.store(true, SeqCst);
+    // swap claims the flag in one step, so two clean requests cannot both get through.
+    if st.health_cleaning.swap(true, SeqCst) { return Err(t().busy.into()); }
     let backups = st.backup_dir();
     let results = blocking(move || health::clean_health(&items, &backups, &|p| { let _ = app.emit("health:progress", p); })).await;
     st.health_cleaning.store(false, SeqCst);

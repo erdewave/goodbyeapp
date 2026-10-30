@@ -33,8 +33,12 @@ mod tests {
         assert!(icons.values().all(|u| u.starts_with("data:image/png;base64,")));
     }
 }
-// Finder moves the bundle to the Trash and asks for the admin password when it is root-owned (App Store, pkg installs).
+// NSFileManager trashes user-owned bundles without asking (and without the Finder automation prompt); root-owned ones
+// (App Store, pkg installs) fall back to Finder, which asks for the admin password.
+const TRASH: &str = "function run(argv) { ObjC.import('Foundation'); if (!$.NSFileManager.defaultManager.trashItemAtURLResultingItemURLError($.NSURL.fileURLWithPath(argv[0]), null, null)) throw new Error('trash failed') }";
 pub fn uninstall(app: &AppRecord) -> R<()> {
     let location = app.location.clone().unwrap_or_default();
-    run("osascript", &["-e", "on run argv", "-e", "tell application \"Finder\" to delete (POSIX file (item 1 of argv) as alias)", "-e", "end run", &location]).map(|_| ())
+    run("osascript", &["-l", "JavaScript", "-e", TRASH, &location])
+        .or_else(|_| run("osascript", &["-e", "on run argv", "-e", "tell application \"Finder\" to delete (POSIX file (item 1 of argv) as alias)", "-e", "end run", &location]))
+        .map(|_| ())
 }
