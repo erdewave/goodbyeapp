@@ -1,7 +1,7 @@
 // Reads the NTFS Master File Table straight from the volume (needs administrator rights).
 // Written from the public NTFS on-disk format: boot sector, FILE records, $FILE_NAME (0x30), $DATA (0x80).
 use crate::{files::{trim, Job}, tree::build_tree, types::*, util::*};
-use std::{fs::File, io::{Read, Seek, SeekFrom}, sync::atomic::{AtomicBool, Ordering::Relaxed}};
+use std::{fs::File, io::{Read, Seek, SeekFrom}, sync::atomic::{AtomicBool, Ordering::Relaxed}, time::{Duration, Instant}};
 
 const CHUNK: usize = 8 * 1024 * 1024;
 const ROOT: usize = 5;
@@ -41,6 +41,17 @@ fn fixup(buf: &mut [u8], at: usize, rec_size: usize) -> bool {
 struct Table { kind: Vec<u8>, parent: Vec<u32>, size: Vec<f64>, name_at: Vec<(u32, u8)>, arena: Vec<u16> }
 impl Table {
     fn name(&self, i: usize) -> Option<String> { let (o, l) = self.name_at[i]; (l > 0).then(|| String::from_utf16_lossy(&self.arena[o as usize..o as usize + l as usize])) }
+    // Full path of record i. Mid-scan (`partial`) a folder on the way up may not be read yet: then None, not a "?" path.
+    fn path(&self, i: usize, drive: &str, partial: bool) -> Option<String> {
+        let (mut parts, mut p) = (Vec::new(), i);
+        for _ in 0..512 {
+            if p == ROOT || p >= self.kind.len() { break; }
+            match self.name(p) { Some(n) => parts.push(n), None if partial => return None, None => parts.push("?".into()) }
+            p = self.parent[p] as usize;
+        }
+        parts.reverse();
+        Some(format!(r"{drive}\{}", parts.join("\\")))
+    }
 }
 fn parse(buf: &mut [u8], at: usize, rec_size: usize, index: usize, t: &mut Table) {
     if !fixup(buf, at, rec_size) { return; }
@@ -89,6 +100,10 @@ pub fn scan(job: &Job, cancel: &AtomicBool, limit: usize) -> R<()> {
     let mut buf = vec![0u8; CHUNK];
     let mut index = 0;
     *job.current.lock().unwrap() = format!(r"{drive}\$MFT");
+    // Live list: the largest files read so far go out with the progress snapshots, like the walk's do.
+    // The pass after the loop recomputes everything, so sizes fixed up by later extension records still land.
+    // The live count is files only (same rule as the final count), not records read, so it climbs to the result instead of overshooting it.
+    let (mut live, mut floor, mut seen, mut shown, mut found) = (Vec::<usize>::new(), 0f64, 0usize, Instant::now(), 0u64);
     for (lcn, len) in list {
         let (mut pos, mut left) = (lcn * cluster as u64, len as usize * cluster);
         while left > 0 && index < count {
@@ -99,7 +114,15 @@ pub fn scan(job: &Job, cancel: &AtomicBool, limit: usize) -> R<()> {
             let mut o = 0;
             while o + rec_size <= n && index < count { parse(&mut buf[..n], o, rec_size, index, &mut t); o += rec_size; index += 1; }
             pos += n as u64; left -= n;
-            job.scanned.store(index as u64, Relaxed);
+            for i in seen..index { if t.kind[i] == 1 { found += 1; } if t.kind[i] == 1 && t.size[i] > floor { live.push(i); if live.len() >= limit * 2 { live.sort_by(|&x, &y| t.size[y].total_cmp(&t.size[x])); live.truncate(limit); floor = t.size[*live.last().unwrap()]; } } }
+            seen = index;
+            job.scanned.store(found, Relaxed);
+            if shown.elapsed() >= Duration::from_millis(400) {
+                shown = Instant::now();
+                live.sort_by(|&x, &y| t.size[y].total_cmp(&t.size[x]));
+                let hits = live.iter().filter_map(|&i| t.path(i, &drive, true).map(|path| FileHit { path, name: t.name(i), size: t.size[i] as u64, ino: i as u64, modified: None })).take(limit).collect();
+                job.data.lock().unwrap().top = hits;
+            }
         }
     }
     let (mut top, mut files, mut min) = (Vec::<usize>::new(), 0u64, 0f64);
@@ -113,9 +136,8 @@ pub fn scan(job: &Job, cancel: &AtomicBool, limit: usize) -> R<()> {
     }
     top.sort_by(|&x, &y| t.size[y].total_cmp(&t.size[x]));
     top.truncate(limit);
-    let path = |i: usize| { let (mut parts, mut p) = (Vec::new(), i); for _ in 0..512 { if p == ROOT || p >= count { break; } parts.push(t.name(p).unwrap_or("?".into())); p = t.parent[p] as usize; } parts.reverse(); format!(r"{drive}\{}", parts.join("\\")) };
     let mut d = job.data.lock().unwrap();
-    d.top = top.iter().map(|&i| FileHit { path: path(i), name: t.name(i), size: t.size[i] as u64, ino: i as u64, modified: None }).collect();
+    d.top = top.iter().map(|&i| FileHit { path: t.path(i, &drive, false).unwrap_or_default(), name: t.name(i), size: t.size[i] as u64, ino: i as u64, modified: None }).collect();
     trim(&mut d);
     job.scanned.store(files, Relaxed);
     d.tree = Some(build_tree(&t.parent, &|i| t.name(i).unwrap_or("?".into()), &t.size, ROOT, &format!(r"{drive}\")));
@@ -124,6 +146,17 @@ pub fn scan(job: &Job, cancel: &AtomicBool, limit: usize) -> R<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn mid_scan_paths_wait_for_their_folders() {
+        // Records: 5 = root, 6 = folder "Games" (not read yet), 7 = "big.bin" inside it.
+        let name = |s: &str| s.encode_utf16().collect::<Vec<u16>>();
+        let mut t = Table { kind: vec![0; 8], parent: vec![5; 8], size: vec![0.0; 8], name_at: vec![(0, 0); 8], arena: name("big.bin") };
+        (t.parent[7], t.name_at[7]) = (6, (0, 7));
+        assert_eq!(t.path(7, "C:", true), None);
+        assert_eq!(t.path(7, "C:", false).as_deref(), Some(r"C:\?\big.bin"));
+        t.name_at[6] = (t.arena.len() as u32, 5); t.arena.extend(name("Games"));
+        assert_eq!(t.path(7, "C:", true).as_deref(), Some(r"C:\Games\big.bin"));
+    }
     #[test]
     fn decodes_data_runs_with_signed_offsets() {
         // run 1: 2 clusters at lcn 0x10; run 2: 3 clusters, offset -1 (0xff) => lcn 0x0f
