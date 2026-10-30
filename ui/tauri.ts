@@ -13,6 +13,9 @@ if (tauri && !window.goodbyeapp) {
   const listen = (name: string) => (callback: (payload: never) => void) => { const off = tauri.event.listen(name, e => callback(e.payload)); return () => { off.then(stop => stop()); }; };
   const methods = ['load', 'icons', 'sizes', 'scan', 'uninstall', 'clean', 'cleanElevated', 'backups', 'drives', 'scanFiles', 'cancelFiles', 'reveal', 'open', 'language', 'healthScan', 'healthReveal', 'healthClean', 'checkUpdate', 'installUpdate'];
   window.goodbyeapp = { ...Object.fromEntries(methods.map(m => [m, call(m)])), onFilesProgress: listen('files:progress'), onHealthProgress: listen('health:progress'), onUpdate: listen('update') } as never;
+  // No webview menu (Back, Refresh, Save as, Print). Bubble phase on window runs after React, so the app's own
+  // context menus still see an unprevented event.
+  window.addEventListener('contextmenu', e => e.preventDefault());
   // Closing waits while an operation runs: the Rust side holds the close request.
   const win = tauri.window.getCurrentWindow(), platform = navigator.userAgent.includes('Windows') ? 'win32' : undefined;
   const getState = async (): Promise<WindowState> => ({ maximized: await win.isMaximized(), focused: await win.isFocused(), platform });

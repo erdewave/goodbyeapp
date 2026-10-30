@@ -58,8 +58,12 @@ pub fn split_command(command: &str) -> Option<(String, String)> {
         return rest[..end].to_ascii_lowercase().ends_with(".exe").then(|| (rest[..end].to_string(), rest[end + 1..].trim().to_string()));
     }
     // ASCII lowering keeps byte offsets, so they still index the original string.
-    let end = command.to_ascii_lowercase().find(".exe")? + 4;
-    (end > 4).then(|| (command[..end].to_string(), command[end..].trim_start().to_string()))
+    if let Some(end) = command.to_ascii_lowercase().find(".exe").map(|i| i + 4) {
+        return (end > 4).then(|| (command[..end].to_string(), command[end..].trim_start().to_string()));
+    }
+    // A bare program name on PATH, e.g. winget's "winget uninstall --product-code …".
+    let (exe, args) = command.split_once(char::is_whitespace).unwrap_or((command, ""));
+    (!exe.is_empty() && !exe.contains(['\\', '/', ':'])).then(|| (exe.to_string(), args.trim_start().to_string()))
 }
 pub fn quote(value: &str) -> String { format!("'{}'", value.replace('\'', "''")) }
 fn encode(script: &str) -> String {
@@ -84,8 +88,9 @@ mod tests {
         assert_eq!(split_command(r#""C:\A B\unins000.exe" /SILENT"#), Some((r"C:\A B\unins000.exe".into(), "/SILENT".into())));
         assert_eq!(split_command(r"C:\x\un.exe /S"), Some((r"C:\x\un.exe".into(), "/S".into())));
         assert_eq!(split_command("MsiExec.exe /I{ABC}").map(|c| c.1), Some("/I{ABC}".into()));
-        assert_eq!(split_command("cmd /c thing"), None);
-        assert_eq!(split_command("msiexec /x{1}"), None);
+        assert_eq!(split_command("winget uninstall --product-code A_B"), Some(("winget".into(), "uninstall --product-code A_B".into())));
+        assert_eq!(split_command("msiexec /x{1}"), Some(("msiexec".into(), "/x{1}".into())));
+        assert_eq!(split_command(r"C:\x\uninstall.bat /S"), None);
         // "İ" grows when lowered with to_lowercase; the split must still land on ".exe".
         assert_eq!(split_command(r"C:\İİ\un.exe /S"), Some((r"C:\İİ\un.exe".into(), "/S".into())));
     }

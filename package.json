@@ -25,6 +25,7 @@
   },
   "dependencies": {
     "@floating-ui/dom": "^1.8.0",
+    "border-beam": "1.4.1",
     "clsx": "^2.1.1",
     "lucide-react": "1.59.0",
     "motion": "^14.6.0",

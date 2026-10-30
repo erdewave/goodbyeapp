@@ -37,6 +37,8 @@ const CASCADE_LETTER_VARIANTS: Variants = {
     opacity: 1,
     y: "0%",
     filter: "blur(0px)",
+    // A resting blur(0px) still renders the glyphs through a filter layer and softens them; drop it once settled.
+    transitionEnd: { filter: "none" },
     transition: { ...SPRING_SWAP, delay },
   }),
   exit: (delay: number = 0) => ({
@@ -56,6 +58,7 @@ const ICON_VARIANTS: Variants = {
     width: "1.5rem",
     scale: 1,
     filter: "blur(0px)",
+    transitionEnd: { filter: "none" },
     transition: SPRING_SWAP,
   },
   exit: {
@@ -154,7 +157,7 @@ function TextSlot({
                   initial="initial"
                   animate="animate"
                   exit="exit"
-                  className="inline-block whitespace-pre will-change-[opacity,filter,transform]"
+                  className="inline-block whitespace-pre"
                 >
                   {char}
                 </motion.span>
@@ -167,10 +170,11 @@ function TextSlot({
           <motion.span
             key={`text-${value}`}
             initial={reduce ? { opacity: 0 } : { opacity: 0, y: 14, filter: ROLL_BLUR }}
-            animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
+            animate={reduce ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)", transitionEnd: { filter: "none" } }}
             exit={reduce ? { opacity: 0 } : { opacity: 0, y: -14, filter: ROLL_BLUR }}
             transition={reduce ? { duration: 0.15 } : SPRING_SWAP}
-            className="absolute left-0 top-0 inline-block will-change-[opacity,filter,transform]"
+            // No permanent will-change: it keeps the label on its own layer, where text loses subpixel antialiasing.
+            className="absolute left-0 top-0 inline-block"
           >
             {children}
           </motion.span>
