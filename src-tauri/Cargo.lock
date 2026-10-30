@@ -1395,7 +1395,7 @@ dependencies = [
 
 [[package]]
 name = "goodbyeapp"
-version = "0.3.2"
+version = "0.0.0"
 dependencies = [
  "base64 0.22.1",
  "opener",
