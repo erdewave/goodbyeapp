@@ -1,0 +1,41 @@
+# Runs the unit tests, builds the app and starts it on both macOS architectures. No signing key or release is involved:
+# the updater artifacts are switched off, so this can run on any branch.
+name: macOS check
+
+on:
+  push:
+    branches: [tauri-prototype]
+  workflow_dispatch:
+
+jobs:
+  mac:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - run: npm ci
+      - run: npm test
+      - name: Build the app and the dmg
+        env:
+          APPLE_SIGNING_IDENTITY: '-'
+        run: npx tauri build --bundles dmg --config '{"bundle":{"createUpdaterArtifacts":false}}'
+      - name: Start the built app
+        timeout-minutes: 5
+        run: GOODBYEAPP_EXECUTABLE="$PWD/src-tauri/target/release/goodbyeapp" npm run test:launch
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mac-${{ runner.arch }}
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          if-no-files-found: warn

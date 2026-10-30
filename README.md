@@ -27,7 +27,7 @@
 
 ### Hazır kurulum dosyası (Windows)
 
-1. [Releases](https://github.com/erdewave/goodbyeapp/releases) sayfasından `GoodbyeAPP-Setup-<sürüm>.exe` dosyasını indirin.
+1. [Releases](https://github.com/erdewave/goodbyeapp/releases) sayfasından `GoodbyeAPP_<sürüm>_x64-setup.exe` dosyasını indirin.
 2. Dosyayı çalıştırın. Kurulum tek adımlıdır ve uygulama kullanıcı klasörüne kurulur.
 3. GoodbyeAPP'i Başlat menüsünden açın. Kayıt defteri ve Program Files kalıntılarını temizleyebilmesi için açılışta yönetici izni ister.
 
@@ -35,7 +35,7 @@
 
 ### Kaynak koddan
 
-Gereksinim: [Node.js](https://nodejs.org) 22.18 veya üzeri.
+Gereksinimler: [Node.js](https://nodejs.org) 22.18 veya üzeri ve [Rust](https://rustup.rs) (stable). Windows'ta Visual Studio Build Tools (C++ iş yükü), Linux'ta `webkit2gtk-4.1` ve `libssl-dev` gerekir.
 
 ```sh
 git clone https://github.com/erdewave/goodbyeapp.git
@@ -50,7 +50,7 @@ Kendi kurulum dosyanızı üretmek için:
 npm run dist
 ```
 
-Çıktı `release/` klasörüne yazılır: Windows'ta NSIS kurulumu, macOS'ta DMG, Linux'ta AppImage ve deb. Her paketi kendi işletim sisteminde derleyin.
+Çıktı `src-tauri/target/release/bundle/` klasörüne yazılır: Windows'ta NSIS kurulumu, macOS'ta DMG, Linux'ta AppImage. Her paketi kendi işletim sisteminde derleyin. Otomatik güncelleme imzalıdır: `TAURI_SIGNING_PRIVATE_KEY` ortam değişkeni, `src-tauri/tauri.conf.json` içindeki genel anahtarın özel eşi olmalıdır (`npx tauri signer generate`).
 
 ## Kullanım
 
@@ -97,25 +97,25 @@ Desteklenmeyenler: Microsoft Store uygulamaları, apt / rpm / Snap paketleri, se
 
 ## Güvenlik
 
-- Arayüz, Node.js erişimi olmadan sandbox ve context isolation ile çalışır.
+- Arayüz yalnızca uygulamanın kendi Rust komutlarına erişebilir; Node.js yoktur, başka adreslere gidemez.
 - Temizlik istekleri arayüzden dosya yolu almaz; ana süreçte üretilmiş tarama planındaki kimlikleri kullanır.
 - Her yol silinmeden hemen önce yeniden doğrulanır. Kök dizinler ve sembolik bağlantılar reddedilir, bağlantı noktaları takip edilmez.
 - Kayıt defteri yedeği alınamazsa anahtar silinmez.
 
 ## Geliştirme
 
-TypeScript, Electron, React 19, Vite ve Tailwind CSS; arayüz bileşenleri [beUI](https://beui.dev) tabanlıdır.
+Rust ([Tauri](https://tauri.app) 2) ve React 19, Vite, Tailwind CSS; arayüz bileşenleri [beUI](https://beui.dev) tabanlıdır.
 
 | Komut | Ne yapar |
 | --- | --- |
 | `npm start` | Derler ve uygulamayı açar |
-| `npm run build` | Tip kontrolü yapar, arayüzü `dist-ui`, ana süreci `dist-electron` içine derler |
-| `npm test` | Birim testlerini çalıştırır (yalnızca geçici test klasörlerinde, gerçek uygulama kaldırmaz) |
-| `npm run test:ui` | Electron arayüz testini çalıştırır |
-| `npm run pack` | Kurulum dosyası olmadan paketler |
+| `npm run build` | Tip kontrolü yapar ve arayüzü `dist-ui` içine derler |
+| `npm test` | Tip kontrolü ve Rust birim testleri (yalnızca geçici test klasörlerinde, gerçek uygulama kaldırmaz) |
+| `npm run test:ui` | Windows'ta uygulamayı açıp arayüzü Playwright ile gezen testi çalıştırır |
+| `npm run pack` | Kurulum dosyası olmadan derler |
 | `npm run dist` | Kurulum dosyasını üretir |
 
-Klasörler: `electron/` ana süreç ve sistem işlemleri, `ui/` arayüz, `tests/` testler, `assets/brand/` logo ve ikonlar ([marka rehberi](assets/brand/BRAND.md)).
+Klasörler: `src-tauri/` Rust tarafı (komutlar `commands.rs`, sistem işlemleri `platform/`, disk taraması `files.rs` + `mft.rs`, Sağlık Kontrolü `health/`), `ui/` arayüz, `tests/` arayüz testleri, `assets/brand/` logo ve ikonlar ([marka rehberi](assets/brand/BRAND.md)).
 
 ## Lisans
 

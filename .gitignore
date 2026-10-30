@@ -1,10 +1,12 @@
 node_modules/
 release/
 dist-ui/
-dist-electron/
 *.log
 artifacts/
 /*.png
 
 # graft's local graph cache — regenerable, not committed (run `graft build`).
 /graft/
+
+/src-tauri/target/
+/src-tauri/gen/

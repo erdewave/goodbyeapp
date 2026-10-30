@@ -1,0 +1,51 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "GoodbyeAPP",
+  "version": "0.3.2",
+  "identifier": "app.goodbyeapp.desktop",
+  "build": {
+    "frontendDist": "../dist-ui",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "nsis",
+      "dmg",
+      "appimage"
+    ],
+    "createUpdaterArtifacts": true,
+    "icon": [
+      "../assets/brand/goodbyeapp-icon.ico",
+      "../assets/brand/goodbyeapp-icon.png"
+    ],
+    "category": "Utility",
+    "licenseFile": "../LICENSE",
+    "resources": {
+      "../licenses": "licenses"
+    },
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEEwRjExQzhEOUFFQzBDQjcKUldTM0RPeWFqUnp4b0dGdUwvYytnTjNFNmVJbjlGZml4SG1SUm1PTDh3VURrRWkxS0QwNFhkcHEK",
+      "endpoints": [
+        "https://github.com/erdewave/goodbyeapp/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
+  }
+}
