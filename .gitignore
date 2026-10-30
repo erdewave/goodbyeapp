@@ -10,3 +10,4 @@ artifacts/
 
 /src-tauri/target/
 /src-tauri/gen/
+/.claude/skills/
