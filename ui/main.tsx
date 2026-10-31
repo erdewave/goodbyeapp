@@ -134,10 +134,10 @@ function App() {
   useEffect(() => { task(load); }, []);
   useEffect(() => {
     if (!api) return;
-    const off = api.onUpdate(({ ready }) => { updateReady.current = ready; toast.dismissToast('update');
+    const off = api.onUpdate(({ ready }) => { updateReady.current = ready; setUpdatePending(ready); toast.dismissToast('update');
       toast.showToast({ id: 'update', title: t.update.title, description: ready ? t.update.ready : t.update.available, status: 'info', duration: 0,
         action: { primary: true, label: ready ? t.update.install : t.update.download, onClick: () => { api.installUpdate().catch((e: Error) => toast.showToast({ title: e.message, status: 'error' })); } },
-        ...(ready && { secondaryAction: { label: t.update.later, onClick: () => { toast.dismissToast('update'); setUpdatePending(true); } } }) }); });
+        ...(ready && { secondaryAction: { label: t.update.later, onClick: () => toast.dismissToast('update') } }) }); });
     if (autoUpdate) api.checkUpdate().catch(() => {}); // a failed launch check stays silent; the next launch retries
     return off;
   }, []);
