@@ -1,5 +1,5 @@
 // Updates come from GitHub Releases. Windows (NSIS) and Linux (AppImage) download in the background and install on the
-// user's go-ahead, or on quit (main.rs); macOS needs a Developer ID signature to install in place, so it only links to the release.
+// user's go-ahead only (quitting leaves it uninstalled); macOS needs a Developer ID signature to install in place, so it only links to the release.
 // The renderer starts every check (on launch when automatic updates are on, or from Settings), so no event is sent
 // before it listens. Returns the new version, or null when up to date; the toast arrives over the `update` event.
 use crate::{i18n::t, state::*, util::*};

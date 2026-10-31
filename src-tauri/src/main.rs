@@ -44,9 +44,5 @@ fn main() {
         ])
         .build(tauri::generate_context!())
         .expect("failed to build GoodbyeAPP")
-        .run(|app, event| if let tauri::RunEvent::Exit = event {
-            log::log("quit");
-            // A downloaded update the user did not install yet is installed on quit, without starting the app again.
-            if let Some(p) = app.state::<Arc<state::AppState>>().inner.lock().unwrap().pending.take() { let _ = p.update.restart_after_install(false).install(p.bytes); }
-        });
+        .run(|_, event| if let tauri::RunEvent::Exit = event { log::log("quit"); });
 }
