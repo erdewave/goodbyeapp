@@ -5,7 +5,7 @@ use std::{fs, path::{Path, PathBuf}};
 // `name` is the bundle id or one of its sub-ids (com.x.app.helper.plist, com.x.app.binarycookies), case-insensitively.
 fn owns(name: &str, bundle: &str) -> bool { let (n, b) = (name.to_lowercase(), bundle.to_lowercase()); n == b || n.strip_prefix(&b).is_some_and(|r| r.starts_with('.')) }
 // Group containers are named <TEAMID>.group.<id> after no fixed rule; they count when they carry the bundle's vendor
-// segment and end in its last one (8M34BTQQ45.group.com.piriform.osx.ccleaner for com.piriform.ccleaner).
+// segment and end in its last one (ABCDE12345.group.com.vendor.osx.app for com.vendor.app).
 fn group_owns(name: &str, bundle: &str) -> bool {
     let (n, b) = (name.to_lowercase(), bundle.to_lowercase());
     let segs: Vec<&str> = b.split('.').collect();
@@ -74,8 +74,8 @@ mod tests {
     }
     #[test]
     fn bundle_matching_leaves_other_apps_entries() {
-        assert!(owns("com.piriform.ccleaner.update.plist", "com.piriform.ccleaner") && owns("com.piriform.CCleaner", "com.piriform.ccleaner") && !owns("com.piriform.ccleanerx", "com.piriform.ccleaner"));
-        assert!(group_owns("8M34BTQQ45.group.com.piriform.osx.ccleaner", "com.piriform.ccleaner") && !group_owns("UBF8T346G9.Office", "com.microsoft.Word"));
+        assert!(owns("com.vendor.app.update.plist", "com.vendor.app") && owns("com.vendor.App", "com.vendor.app") && !owns("com.vendor.appx", "com.vendor.app"));
+        assert!(group_owns("ABCDE12345.group.com.vendor.osx.app", "com.vendor.app") && !group_owns("UBF8T346G9.Office", "com.microsoft.Word"));
         let root = std::env::temp_dir().join(format!("goodbyeapp-owned-{}", std::process::id()));
         fs::create_dir_all(&root).unwrap();
         for n in ["com.x.app.plist", "com.x.app.canary.plist", "com.x.other"] { fs::write(root.join(n), "").unwrap(); }

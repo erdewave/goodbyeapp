@@ -1,4 +1,4 @@
-// Health Check registry part (Windows): CCleaner's MRU/history keys, plus Run, MuiCache, SharedDLLs and App Paths
+// Health Check registry part (Windows): MRU/history keys, plus Run, MuiCache, SharedDLLs and App Paths
 // entries whose target file is gone. PowerShell checks them in one call each; they run only during a scan.
 use crate::{types::HealthItem, util::*};
 use serde::Deserialize;

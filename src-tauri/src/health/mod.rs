@@ -92,7 +92,7 @@ fn io_message(e: &std::io::Error) -> String {
 fn clean_one(item: &HealthItem, backup_dir: &Path, progress: &dyn Fn(Progress)) -> R<Option<String>> {
     #[cfg(target_os = "macos")] if crate::platform::browser_running(&item.group) { return Err(t().in_use.into()); }
     match item.kind.as_str() {
-        // Safari keeps history as rows of History.db, as CCleaner's Safari cleaner deletes them; VACUUM gives the space back.
+        // Safari keeps history as rows of History.db; deleting them clears it and VACUUM gives the space back.
         #[cfg(target_os = "macos")] "sql" => run("/usr/bin/sqlite3", &[&item.path, "DELETE FROM history_visits; DELETE FROM history_items; VACUUM;"]).map(|_| None),
         "files" => {
             let (mut failed, mut done, mut error, mut sent) = (0, 0, String::new(), Instant::now() - Duration::from_secs(1));

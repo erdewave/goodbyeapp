@@ -1,6 +1,6 @@
-// macOS follows CCleaner for Mac 2.11 (CleaningEngine.framework config.json and SharedKit's browser readers): caches, logs and
-// trash from Root, Home and app sandboxes, Downloads with Mail attachments, Xcode data. It cleans no temp folder there.
-// Linux has no CCleaner, so its rules are our own. Windows-only rules find no folders on either and their groups stay hidden.
+// macOS: caches, logs and trash from Root, Home and app sandboxes, Downloads with Mail attachments, Xcode data.
+// It cleans no temp folder there. Linux: /tmp and /var/tmp, XDG caches, trash, X session logs and browsers.
+// Windows-only rules find no folders on either and their groups stay hidden.
 use super::rules::*;
 
 const MA: &str = "~/Library/Application Support";
@@ -9,7 +9,7 @@ const XC: &str = "~/.config";
 const XK: &str = "~/.cache";
 const CONTAINERS: &str = "~/Library/Containers/*/Data/Library";
 const MAIL: &str = "~/Library/Containers/com.apple.mail/Data";
-// Browser caches belong to their browser groups; fontconfig and Java are CCleaner's own Cache.User exclusions.
+// Browser caches belong to their browser groups; fontconfig and Java caches stay.
 const USER_CACHE_SKIP: &str = r"(?i)[\\/](?:Caches|\.cache)[\\/](Google|Firefox|BraveSoftware|Microsoft Edge|Vivaldi|com\.operasoftware\.Opera|com\.apple\.Safari|fontconfig|Java|google-chrome|chromium|mozilla|microsoft-edge|vivaldi|opera|thumbnails|huggingface)[\\/]";
 
 pub fn macos() -> Vec<Rule> {
@@ -19,11 +19,11 @@ pub fn macos() -> Vec<Rule> {
     // Cache.Darwin is DARWIN_USER_CACHE_DIR, the C folder next to $TMPDIR (T) under /var/folders.
     if let Some(tmp) = std::env::var_os("TMPDIR") { v.push(rs("system", "usercache", true, fl![std::path::Path::new(&tmp).join("..").join("C").to_string_lossy().into_owned()], "*", "r", Some(r"[\\/](com\.apple\.FontRegistry|com\.apple\.metadata\.mdworker)[\\/]"))); }
     v.extend([
-        rs("system", "userlogs", true, fl!["~/Library/Logs"], "*", "r", Some(r"[\\/]Logs[\\/](AvastCleanup|AVGTuneUp|CCleaner)[\\/]")), r("system", "userlogs", true, fl!["/Library/Logs", format!("{CONTAINERS}/Logs")]),
+        r("system", "userlogs", true, fl!["~/Library/Logs"]), r("system", "userlogs", true, fl!["/Library/Logs", format!("{CONTAINERS}/Logs")]),
         r("system", "trash", true, fl!["~/.Trash"]), rs("system", "trash", true, fl!["/Volumes/*/.Trashes"], "*", "r", Some(r"[\\/]MobileBackups[\\/]")),
         r("system", "downloads", false, fl!["~/Downloads", "~/MailDownloads", "~/Mail Downloads", "~/Library/MailDownloads", "~/Library/Mail Downloads", format!("{MAIL}/MailDownloads"), format!("{MAIL}/Mail Downloads"), format!("{MAIL}/Library/Mail Downloads")]),
         r("apps", "Xcode - DerivedData", true, fl!["~/Library/Developer/Xcode/DerivedData"]), r("apps", "Xcode - Simulators", false, fl!["~/Library/Developer/Xcode/Simulators"]),
-        // Safari history is SQL inside History.db (CCleaner runs DELETE FROM history_visits), so only its caches and cookie jar are files to remove.
+        // Safari history is rows inside History.db (cleaned with SQL in health/mod.rs), so only its caches and cookie jar are files to remove.
         rs("Safari", "cache", true, fl![format!("{MC}/com.apple.Safari"), "~/Library/Containers/com.apple.Safari/Data/Library/Caches/com.apple.Safari,WebKit"], "*", "r", Some(r"(?i)[\\/]com\.apple\.Safari[\\/]Extensions[\\/]")),
         rm("Safari", "cookies", false, fl!["~/Library/Cookies", "~/Library/Containers/com.apple.Safari/Data/Library/Cookies"], "Cookies.binarycookies", ""),
     ]);
