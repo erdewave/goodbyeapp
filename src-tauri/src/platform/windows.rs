@@ -1,6 +1,7 @@
 // Windows: the Uninstall registry keys, the registered uninstaller, and registry backup + delete through reg.exe.
 use crate::{i18n::t, types::*, util::*};
-use std::path::Path;
+use std::{os::windows::{io::AsRawHandle, process::CommandExt}, path::Path, process::{Command, Stdio}};
+use windows::{core::{BOOL, PCWSTR}, Win32::{Foundation::*, System::JobObjects::*, UI::WindowsAndMessaging::*}};
 use winreg::{enums::*, RegKey};
 
 const UNINSTALL: &str = r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall";
@@ -33,8 +34,45 @@ pub fn uninstall(app: &AppRecord) -> R<()> {
         if let Some(i) = args.to_ascii_lowercase().match_indices("/i").map(|(i, _)| i).find(|&i| args[i + 2..].chars().next().is_some_and(|c| c.is_whitespace() || c == '{')) { args.replace_range(i..i + 2, "/X"); }
     }
     let list = if args.is_empty() { String::new() } else { format!("-ArgumentList {}", quote(&args)) };
-    let code = ps(&format!("$p=Start-Process -FilePath {} {list} -PassThru -Wait; $p.ExitCode", quote(&exe)))?;
+    let script = encoded(&format!("$p=Start-Process -FilePath {} {list} -PassThru -Wait; $p.ExitCode", quote(&exe)));
+    let mut cmd = Command::new("powershell.exe");
+    cmd.args(["-NoProfile", "-NonInteractive", "-EncodedCommand", &script]).creation_flags(0x0800_0000).stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = cmd.spawn().ctx()?;
+    // The job holds PowerShell and everything it starts, even when the uninstaller hands off to a copy of itself and exits.
+    let job = unsafe { CreateJobObjectW(None, PCWSTR::null()) }.ctx()?;
+    unsafe {
+        let mut limit = JOBOBJECT_BASIC_LIMIT_INFORMATION { LimitFlags: JOB_OBJECT_LIMIT_BREAKAWAY_OK, ..Default::default() };
+        let _ = SetInformationJobObject(job, JobObjectBasicLimitInformation, &mut limit as *mut _ as _, size_of_val(&limit) as u32);
+        let _ = AssignProcessToJobObject(job, HANDLE(child.as_raw_handle()));
+    }
+    while child.try_wait().ctx()?.is_none() { raise(job); std::thread::sleep(std::time::Duration::from_millis(300)); }
+    unsafe { let _ = CloseHandle(job); }
+    let code = finish(child.wait_with_output().ctx()?)?;
     if ["0", "3010", "1641"].contains(&code.as_str()) { Ok(()) } else { Err((t().uninstaller_failed)(&code)) }
+}
+// While the user is looking at this app, keeps the uninstaller's window in front of it so it cannot hide behind other windows.
+// Never takes focus from another program (a game, say); it waits until the user comes back here.
+fn raise(job: HANDLE) {
+    #[repr(C)]
+    struct Ids { assigned: u32, listed: u32, ids: [usize; 64] }
+    unsafe extern "system" fn pick(hwnd: HWND, ids: LPARAM) -> BOOL {
+        let ids = &*(ids.0 as *const Vec<u32>);
+        let mut pid = 0;
+        GetWindowThreadProcessId(hwnd, Some(&mut pid));
+        if !ids.contains(&pid) || !IsWindowVisible(hwnd).as_bool() || GetWindowTextLengthW(hwnd) == 0 { return true.into(); }
+        if IsIconic(hwnd).as_bool() { let _ = ShowWindow(hwnd, SW_RESTORE); }
+        let _ = SetForegroundWindow(hwnd);
+        false.into()
+    }
+    unsafe {
+        let mut fg = 0;
+        GetWindowThreadProcessId(GetForegroundWindow(), Some(&mut fg));
+        if fg != std::process::id() { return; }
+        let mut list = Ids { assigned: 0, listed: 0, ids: [0; 64] };
+        if QueryInformationJobObject(Some(job), JobObjectBasicProcessIdList, &mut list as *mut _ as _, size_of_val(&list) as u32, None).is_err() { return; }
+        let ids: Vec<u32> = list.ids[..list.listed.min(64) as usize].iter().map(|&id| id as u32).collect();
+        let _ = EnumWindows(Some(pick), LPARAM(&ids as *const _ as isize));
+    }
 }
 fn open(path: &str) -> Option<RegKey> {
     let (hive, sub) = path.split_once('\\')?;

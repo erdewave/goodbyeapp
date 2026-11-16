@@ -44,6 +44,8 @@ export interface CommandPaletteProps {
   emptyMessage?: string;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** While true the keyboard shortcut cannot open the palette. */
+  disabled?: boolean;
 }
 
 // Opened via a keyboard shortcut many times a day — entrance must read as
@@ -72,6 +74,7 @@ export function CommandPalette({
   emptyMessage = "No results found.",
   open: controlledOpen,
   onOpenChange,
+  disabled,
 }: CommandPaletteProps) {
   const [internalOpen, setInternalOpen] = useState(false);
   const controlled = controlledOpen !== undefined;
@@ -106,7 +109,7 @@ export function CommandPalette({
         e.key.toLowerCase() === shortcut.toLowerCase()
       ) {
         e.preventDefault();
-        setOpen(!open);
+        if (!disabled || open) setOpen(!open);
         return;
       }
       if (e.key === "Escape" && open) {
@@ -116,7 +119,7 @@ export function CommandPalette({
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, shortcut, setOpen]);
+  }, [open, shortcut, setOpen, disabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -325,7 +328,7 @@ export function CommandPalette({
                     )}
                   />
                   <kbd className="hidden rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground sm:inline-block">
-                    ESC
+                    {navigator.userAgent.includes("Mac") ? "⎋" : "ESC"}
                   </kbd>
                 </div>
                 <div

@@ -140,7 +140,7 @@ pub fn scan(job: &Job, cancel: &AtomicBool, limit: usize) -> R<()> {
     d.top = top.iter().map(|&i| FileHit { path: t.path(i, &drive, false).unwrap_or_default(), name: t.name(i), size: t.size[i] as u64, ino: i as u64, modified: None }).collect();
     trim(&mut d);
     job.scanned.store(files, Relaxed);
-    d.tree = Some(build_tree(&t.parent, &|i| t.name(i).unwrap_or("?".into()), &t.size, ROOT, &format!(r"{drive}\")));
+    d.tree = Some(build_tree(&t.parent, &|i| t.name(i).unwrap_or("?".into()), &|i| t.kind[i] == 1, &t.size, ROOT, &format!(r"{drive}\")));
     Ok(())
 }
 #[cfg(test)]

@@ -86,6 +86,9 @@ pub async fn backups(st: S<'_>) -> R<()> {
 }
 #[tauri::command]
 pub fn language(code: String) { i18n::set_language(&code); }
+// macOS: System Settings › Privacy & Security › Full Disk Access.
+#[tauri::command]
+pub fn open_privacy() -> R<()> { opener::open("x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles").ctx() }
 #[tauri::command]
 pub async fn drives() -> R<Vec<Drive>> { blocking(files::list_drives).await? }
 fn tree_ids(n: &TreeNode, out: &mut Vec<String>) { out.push(n.id.clone()); for c in n.children.iter().flatten() { tree_ids(c, out); } }
@@ -126,6 +129,36 @@ fn scanned(st: &AppState, target: &str) -> R<()> { if st.inner.lock().unwrap().f
 pub fn reveal(st: S<'_>, target: String) -> R<()> { scanned(&st, &target)?; opener::reveal(Path::new(&target)).ctx() }
 #[tauri::command]
 pub fn open(st: S<'_>, target: String) -> R<()> { scanned(&st, &target)?; opener::open(Path::new(&target)).ctx() }
+#[tauri::command]
+pub async fn web_search(st: S<'_>, target: String) -> R<()> { scanned(&st, &target)?; blocking(move || crate::web_search::search(&target)).await? }
+#[tauri::command]
+pub async fn health_web_search(st: S<'_>, key: String, file: Option<String>) -> R<()> {
+    let path = health_file(&st, &key, file, true)?;
+    blocking(move || crate::web_search::search(&path)).await?
+}
+// Looks a file up on VirusTotal by its SHA-256, so the file itself is never uploaded; an unknown hash offers the upload there.
+fn virustotal_lookup(path: &str) -> R<()> {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    // pagefile.sys, hiberfil.sys and the like are held open by Windows itself (sharing/lock violation) and cannot be read.
+    let locked = |e: std::io::Error| if matches!(e.raw_os_error(), Some(32 | 33)) { t().vt_locked.to_string() } else { e.to_string() };
+    let mut file = std::fs::File::open(path).map_err(locked)?;
+    if !file.metadata().ctx()?.is_file() { return Err(t().invalid_selection.into()); }
+    // A thread reads the next chunks while this one hashes, so a large file takes about as long as the slower of the two, not their sum.
+    let (tx, rx) = std::sync::mpsc::sync_channel::<std::io::Result<Vec<u8>>>(4);
+    std::thread::spawn(move || loop {
+        let mut buf = vec![0u8; 8 << 20];
+        let chunk = file.read(&mut buf).map(|n| { buf.truncate(n); buf });
+        let last = !matches!(&chunk, Ok(b) if !b.is_empty());
+        if tx.send(chunk).is_err() || last { break; }
+    });
+    let mut hash = Sha256::new();
+    for chunk in rx { let chunk = chunk.map_err(locked)?; if chunk.is_empty() { break; } hash.update(&chunk); }
+    let hex: String = hash.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    opener::open(format!("https://www.virustotal.com/gui/file/{hex}")).ctx()
+}
+#[tauri::command]
+pub async fn virustotal(st: S<'_>, target: String) -> R<()> { scanned(&st, &target)?; blocking(move || virustotal_lookup(&target)).await? }
 
 // Health Check: the renderer picks ids from the last scan; paths and keys never come from it.
 // The clean runs outside the busy lock (like the disk scan) so the other tabs stay usable; only a rescan waits for it.
@@ -138,17 +171,35 @@ pub async fn health_scan(st: S<'_>) -> R<Vec<HealthItem>> {
     st.inner.lock().unwrap().health = items.iter().map(|i| (i.id.clone(), i.clone())).collect();
     Ok(items)
 }
-// Reveals the first file the scan found for the item (its path can be a wildcard, so it is not revealed itself).
-#[tauri::command]
-pub fn health_reveal(st: S<'_>, key: String) -> R<()> {
-    let first = st.inner.lock().unwrap().health.get(&key).filter(|i| i.kind == "files").and_then(|i| i.files.first().cloned());
-    opener::reveal(Path::new(&first.ok_or_else(|| t().invalid_selection.to_string())?)).ctx()
+// One file of a scanned item: `file` when given (only one the scan found for that item), else the item's first file,
+// or its only file when `single` (a multi-file item has no single hash).
+fn health_file(st: &AppState, key: &str, file: Option<String>, single: bool) -> R<String> {
+    let inner = st.inner.lock().unwrap();
+    let item = inner.health.get(key).filter(|i| i.kind == "files");
+    let found = item.and_then(|i| match file { Some(f) => i.files.contains(&f).then_some(f), None => i.files.first().filter(|_| !single || i.files.len() == 1).cloned() });
+    found.ok_or_else(|| t().invalid_selection.to_string())
 }
+// The item's path can be a wildcard, so a file of it is revealed rather than the path itself.
 #[tauri::command]
-pub async fn health_clean(app: AppHandle, st: S<'_>, selected: Vec<String>) -> R<Value> {
+pub fn health_reveal(st: S<'_>, key: String, file: Option<String>) -> R<()> { opener::reveal(Path::new(&health_file(&st, &key, file, false)?)).ctx() }
+#[tauri::command]
+pub async fn health_virustotal(st: S<'_>, key: String, file: Option<String>) -> R<()> {
+    let file = health_file(&st, &key, file, true)?;
+    blocking(move || virustotal_lookup(&file)).await?
+}
+// The files of one item with their sizes, largest first, for the per-file picker.
+#[tauri::command]
+pub async fn health_files(st: S<'_>, key: String) -> R<Vec<(String, u64)>> {
+    let files = st.inner.lock().unwrap().health.get(&key).filter(|i| i.kind == "files").map(|i| i.files.clone()).ok_or_else(|| t().invalid_selection.to_string())?;
+    blocking(move || { let mut out: Vec<_> = files.into_iter().map(|f| { let size = std::fs::metadata(&f).map_or(0, |m| m.len()); (f, size) }).collect(); out.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0))); out }).await
+}
+// `skip` lists files the user unticked inside a picked item; they stay on disk.
+#[tauri::command]
+pub async fn health_clean(app: AppHandle, st: S<'_>, selected: Vec<String>, skip: HashMap<String, Vec<String>>) -> R<Value> {
     let st = st.inner().clone();
     if selected.is_empty() { return Err(t().select_items.into()); }
-    let items = { let inner = st.inner.lock().unwrap(); picked(&selected, |k| inner.health.get(k).cloned())? };
+    let mut items = { let inner = st.inner.lock().unwrap(); picked(&selected, |k| inner.health.get(k).cloned())? };
+    for item in &mut items { if let Some(paths) = skip.get(&item.id) { let paths: HashSet<&String> = paths.iter().collect(); item.files.retain(|f| !paths.contains(f)); } }
     // swap claims the flag in one step, so two clean requests cannot both get through.
     if st.health_cleaning.swap(true, SeqCst) { return Err(t().busy.into()); }
     let backups = st.backup_dir();

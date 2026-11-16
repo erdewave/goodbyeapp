@@ -22,8 +22,8 @@ jobs:
         include:
           - { name: windows, os: windows-latest, exe: 'src-tauri/target/release/goodbyeapp.exe', bundles: nsis }
           - { name: linux, os: ubuntu-latest, exe: 'src-tauri/target/release/goodbyeapp', bundles: appimage }
-          - { name: mac-arm64, os: macos-latest, exe: 'src-tauri/target/release/goodbyeapp', bundles: dmg }
-          - { name: mac-x64, os: macos-15-intel, exe: 'src-tauri/target/release/goodbyeapp', bundles: dmg }
+          - { name: mac-arm64, os: macos-latest, exe: 'src-tauri/target/release/GoodbyeApp', bundles: dmg }
+          - { name: mac-x64, os: macos-15-intel, exe: 'src-tauri/target/release/GoodbyeApp', bundles: dmg }
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4

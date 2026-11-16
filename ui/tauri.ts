@@ -6,12 +6,14 @@ type Win = { minimize(): Promise<void>; toggleMaximize(): Promise<void>; close()
 type Tauri = { core: { invoke(cmd: string, args?: object): Promise<unknown> }; event: { listen(name: string, callback: (event: { payload: never }) => void): Off }; window: { getCurrentWindow(): Win } };
 const tauri = (window as unknown as { __TAURI__?: Tauri }).__TAURI__;
 if (tauri && !window.goodbyeapp) {
-  const argNames: Record<string, string[]> = { scan: ['id'], uninstall: ['id', 'options'], clean: ['id', 'selected'], cleanElevated: ['id'], reveal: ['target'], open: ['target'], language: ['code'], healthReveal: ['key'], healthClean: ['selected'] };
+  const argNames: Record<string, string[]> = { scan: ['id'], uninstall: ['id', 'options'], clean: ['id', 'selected'], cleanElevated: ['id'], reveal: ['target'], open: ['target'], virustotal: ['target'], webSearch: ['target'], healthWebSearch: ['key', 'file'], language: ['code'], healthReveal: ['key', 'file'], healthVirustotal: ['key', 'file'],healthFiles: ['key'], healthClean: ['selected', 'skip'] };
   // Rust errors arrive as plain strings.
   const invoke = (command: string, args?: object) => tauri.core.invoke(command, args).catch((e: unknown) => { throw new Error(String(e)); });
-  const call = (method: string) => (...values: unknown[]) => invoke(method.replace(/[A-Z]/g, c => '_' + c.toLowerCase()), Object.fromEntries((argNames[method] ?? []).map((name, i) => [name, values[i]])));
+  const call = (method: string) => (...values: unknown[]) => invoke(method.replace(/[A-Z]/g, c => '_' + c.toLowerCase()), {
+    ...Object.fromEntries((argNames[method] ?? []).map((name, i) => [name, values[i]])),
+  });
   const listen = (name: string) => (callback: (payload: never) => void) => { const off = tauri.event.listen(name, e => callback(e.payload)); return () => { off.then(stop => stop()); }; };
-  const methods = ['load', 'icons', 'sizes', 'scan', 'uninstall', 'clean', 'cleanElevated', 'backups', 'drives', 'scanFiles', 'cancelFiles', 'reveal', 'open', 'language', 'healthScan', 'healthReveal', 'healthClean', 'checkUpdate', 'installUpdate'];
+  const methods = ['load', 'icons', 'sizes', 'scan', 'uninstall', 'clean', 'cleanElevated', 'backups', 'drives', 'scanFiles', 'cancelFiles', 'reveal', 'open', 'virustotal', 'webSearch', 'healthWebSearch', 'language', 'healthScan', 'healthReveal', 'healthVirustotal','healthFiles', 'healthClean', 'checkUpdate', 'installUpdate', 'openPrivacy'];
   window.goodbyeapp = { ...Object.fromEntries(methods.map(m => [m, call(m)])), onFilesProgress: listen('files:progress'), onHealthProgress: listen('health:progress'), onUpdate: listen('update') } as never;
   // No webview menu (Back, Refresh, Save as, Print). Bubble phase on window runs after React, so the app's own
   // context menus still see an unprevented event.

@@ -24,18 +24,21 @@ fn rules() -> Vec<RegRule> {
 }
 // An empty key has nothing to clean and is skipped.
 fn rule_script(keys: &[String]) -> String {
-    format!(r##"$hits=@(); foreach($r in (ConvertFrom-Json {})){{ $k,$v=$r -split '\|',2; $i=Get-Item -LiteralPath "Registry::$k" -EA SilentlyContinue; if(!$i){{ continue }}
-  if($v -eq '*'){{ foreach($n in $i.GetValueNames()){{ if($n){{ $hits+=,@($r, "$k|$n") }} }} }} elseif($(if($v){{ $i.GetValueNames() -contains $v }} else {{ $i.ValueCount + $i.SubKeyCount -gt 0 }})){{ $hits+=,@($r, $r) }} }}; ConvertTo-Json -Compress -InputObject @($hits)"##, quote(&serde_json::to_string(keys).unwrap_or_default()))
+    // Third element of a hit: the bytes the entry holds (names and data, UTF-16 for text; a whole key counts its subkeys), so the list shows a real size.
+    format!(r##"function Sz($i,$n){{ $v=$i.GetValue($n); $n.Length*2 + $(if($v -is [byte[]]){{ $v.Length }} elseif($v -is [array]){{ ($v -join '').Length*2 }} else {{ ([string]$v).Length*2 }}) }}
+function Tree($i,$k){{ $t=0; foreach($x in @($i)+@(Get-ChildItem -LiteralPath "Registry::$k" -Recurse -EA SilentlyContinue)){{ $t+=$x.PSChildName.Length*2; foreach($n in $x.GetValueNames()){{ $t+=Sz $x $n }} }}; $t }}
+$hits=@(); foreach($r in (ConvertFrom-Json {})){{ $k,$v=$r -split '\|',2; $i=Get-Item -LiteralPath "Registry::$k" -EA SilentlyContinue; if(!$i){{ continue }}
+  if($v -eq '*'){{ foreach($n in $i.GetValueNames()){{ if($n){{ $hits+=,@($r, "$k|$n", [string](Sz $i $n)) }} }} }} elseif($(if($v){{ $i.GetValueNames() -contains $v }} else {{ $i.ValueCount + $i.SubKeyCount -gt 0 }})){{ $hits+=,@($r, $r, [string]$(if($v){{ Sz $i $v }} else {{ Tree $i $k }})) }} }}; ConvertTo-Json -Compress -InputObject @($hits)"##, quote(&serde_json::to_string(keys).unwrap_or_default()))
 }
-fn item(group: &str, category: &str, on: bool, entry: &str, label: Option<String>, seed: String) -> HealthItem {
+fn item(group: &str, category: &str, on: bool, entry: &str, label: Option<String>, seed: String, size: u64) -> HealthItem {
     let (key, name) = match entry.split_once('|') { Some((k, n)) => (k, Some(n)), None => (entry, None) };
-    HealthItem { id: id(&seed), group: group.into(), category: category.into(), on, kind: if name.is_some() { "value" } else { "key" }.into(), path: name.map_or(key.to_string(), |n| format!(r"{key}\{n}")), key: Some(key.into()), name: name.map(String::from), label, ..Default::default() }
+    HealthItem { id: id(&seed), group: group.into(), category: category.into(), on, kind: if name.is_some() { "value" } else { "key" }.into(), path: name.map_or(key.to_string(), |n| format!(r"{key}\{n}")), key: Some(key.into()), name: name.map(String::from), label, size, ..Default::default() }
 }
 pub fn rule_items() -> Vec<HealthItem> {
     let rules = rules();
     let keys: Vec<String> = rules.iter().flat_map(|r| r.3.clone()).collect();
     let hits: Vec<Vec<String>> = ps(&rule_script(&keys)).ok().and_then(|o| serde_json::from_str(&o).ok()).unwrap_or_default();
-    rules.iter().flat_map(|(group, category, on, keys)| hits.iter().filter(|h| h.len() == 2 && keys.contains(&h[0])).map(|h| item(group, category, *on, &h[1], None, format!("{group}{category}{}", h[1]))).collect::<Vec<_>>()).collect()
+    rules.iter().flat_map(|(group, category, on, keys)| hits.iter().filter(|h| h.len() == 3 && keys.contains(&h[0])).map(|h| item(group, category, *on, &h[1], None, format!("{group}{category}{}", h[1]), h[2].parse().unwrap_or(0))).collect::<Vec<_>>()).collect()
 }
 // Registry values whose target file is gone. 32-bit entries may name System32 for SysWOW64, so both are checked;
 // WindowsApps denies Test-Path even for files that exist, so those entries are never judged.
@@ -52,7 +55,7 @@ ConvertTo-Json -Compress -InputObject @($out)"##;
 struct Hit { c: String, k: String, n: Option<String>, d: String }
 pub fn stale_items() -> Vec<HealthItem> {
     let hits: Vec<Hit> = ps(STALE).ok().and_then(|o| serde_json::from_str(&o).ok()).unwrap_or_default();
-    hits.into_iter().map(|h| { let seed = format!("{}\0{}", h.k, h.n.clone().unwrap_or_default()); let entry = h.n.as_ref().map_or(h.k.clone(), |n| format!("{}|{n}", h.k)); item("registry", &h.c, true, &entry, Some(h.d), seed) }).collect()
+    hits.into_iter().map(|h| { let seed = format!("{}\0{}", h.k, h.n.clone().unwrap_or_default()); let entry = h.n.as_ref().map_or(h.k.clone(), |n| format!("{}|{n}", h.k)); let size = 2 * (h.n.as_ref().map_or(0, |n| n.len()) + h.d.len()) as u64; item("registry", &h.c, true, &entry, Some(h.d), seed, size) }).collect()
 }
 // [item count, bytes] of the Recycle Bin.
 pub fn recycle() -> (u64, u64) {

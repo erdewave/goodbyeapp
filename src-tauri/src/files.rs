@@ -98,7 +98,8 @@ fn walk_tree(job: &Job, d: &Data) -> TreeNode {
     let root = index.get(&job.root).copied().unwrap_or(0);
     let parent: Vec<u32> = keys.iter().map(|k| index.get(&parent_of(k)).copied().unwrap_or(root) as u32).collect();
     let sizes: Vec<f64> = own.keys().map(|k| own[k] as f64).chain(d.big.iter().map(|f| f.1 as f64)).collect();
-    build_tree(&parent, &|i| base_of(&keys[i]), &sizes, root, &job.root)
+    // keys hold the folders first, then the big files.
+    build_tree(&parent, &|i| base_of(&keys[i]), &|i| i >= own.len(), &sizes, root, &job.root)
 }
 pub fn scan_drive(job: &Job, cancel: &AtomicBool) {
     let fast = if cfg!(windows) && job.root.len() == 3 && job.root.as_bytes()[1] == b':' { mft::scan(job, cancel, LIMIT) } else { Err("NTFS yok".to_string()) };

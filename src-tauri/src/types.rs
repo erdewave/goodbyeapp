@@ -16,6 +16,8 @@ pub struct AppRecord {
     #[serde(skip_serializing_if = "Option::is_none")] pub location: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")] pub bundle: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")] pub scope: Option<String>,
+    // YYYY-MM-DD from Spotlight (macOS only).
+    #[serde(skip_serializing_if = "Option::is_none")] pub last_used: Option<String>,
 }
 impl AppRecord {
     pub fn public(&self) -> AppRecord { AppRecord { command: None, registry: None, icon_source: None, ..self.clone() } }
@@ -52,6 +54,8 @@ pub struct TreeNode {
     pub id: String, pub label: String,
     #[serde(skip_serializing_if = "Option::is_none")] pub value: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")] pub children: Option<Vec<TreeNode>>,
+    // A file tile, not a folder that has no tile-sized entries of its own.
+    #[serde(skip_serializing_if = "std::ops::Not::not")] pub file: bool,
 }
 #[derive(Serialize, Clone, Debug)]
 pub struct DriveReport { pub root: String, pub scanned: u64, pub current: String, pub done: bool, pub mode: &'static str, pub files: Vec<FileHit>, #[serde(skip_serializing_if = "Option::is_none")] pub tree: Option<TreeNode> }

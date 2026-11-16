@@ -46,7 +46,9 @@ pub fn run(file: &str, args: &[&str]) -> R<String> {
     let mut cmd = Command::new(file);
     cmd.args(args);
     #[cfg(windows)] std::os::windows::process::CommandExt::creation_flags(&mut cmd, 0x0800_0000);
-    let out = cmd.output().map_err(|e| e.to_string())?;
+    finish(cmd.output().map_err(|e| e.to_string())?)
+}
+pub fn finish(out: std::process::Output) -> R<String> {
     let text = |b: &[u8]| String::from_utf8_lossy(b).trim().to_string();
     if out.status.success() { Ok(text(&out.stdout)) } else { Err(Some(text(&out.stderr)).filter(|e| !e.is_empty()).unwrap_or_else(|| format!("exit {}", out.status.code().unwrap_or(-1)))) }
 }
