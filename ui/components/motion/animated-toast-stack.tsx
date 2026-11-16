@@ -481,7 +481,7 @@ const ToastItem = memo(function ToastItem({
                 >
                   <p
                     className={cn(
-                      "truncate text-sm font-medium leading-5 text-foreground",
+                      "whitespace-normal break-words text-sm font-medium leading-5 text-foreground",
                       classNames?.title,
                     )}
                   >
@@ -490,7 +490,7 @@ const ToastItem = memo(function ToastItem({
                   {toast.description ? (
                     <p
                       className={cn(
-                        "mt-1 line-clamp-2 text-xs leading-4 text-muted-foreground",
+                        "mt-1 whitespace-normal break-words text-xs leading-4 text-muted-foreground",
                         classNames?.description,
                       )}
                     >

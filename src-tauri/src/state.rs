@@ -41,6 +41,8 @@ impl AppState {
         let file = self.data_dir.join("state.json");
         let _ = fs::create_dir_all(&self.data_dir);
         fs::write(file.with_extension("json.tmp"), json!({ "known": inner.known }).to_string()).and_then(|_| fs::rename(file.with_extension("json.tmp"), &file)).ctx()?;
-        Ok(json!({ "apps": inner.known.iter().map(AppRecord::public).collect::<Vec<_>>(), "platform": PLATFORM, "version": self.version }))
+        #[cfg(target_os = "macos")] let disk_access = platform::full_disk_access();
+        #[cfg(not(target_os = "macos"))] let disk_access = true;
+        Ok(json!({ "apps": inner.known.iter().map(AppRecord::public).collect::<Vec<_>>(), "platform": PLATFORM, "version": self.version, "fullDiskAccess": disk_access }))
     }
 }

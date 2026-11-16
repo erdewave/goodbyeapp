@@ -32,7 +32,8 @@ const TreemapFrameBox = memo(function TreemapFrameBox({
     <div
       aria-hidden="true"
       data-treemap-frame={frame.id}
-      className="absolute cursor-pointer overflow-hidden rounded-md border border-border transition-colors duration-150 hover:bg-foreground/[0.04]"
+      // The label handles its own ellipsis. A second rounded overflow clip drops text in WKWebView.
+      className="absolute cursor-pointer rounded-md border border-border transition-colors duration-150 hover:bg-foreground/[0.04]"
       style={{
         left: pct(frame.x, plotWidth),
         top: pct(frame.y, plotHeight),

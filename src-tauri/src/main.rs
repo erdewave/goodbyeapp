@@ -5,6 +5,8 @@ mod health;
 mod i18n;
 mod icons;
 mod log;
+#[cfg(target_os = "macos")]
+mod menu;
 mod mft;
 mod platform;
 mod sizes;
@@ -13,6 +15,7 @@ mod tree;
 mod types;
 mod update;
 mod util;
+mod web_search;
 use std::sync::{atomic::Ordering::SeqCst, Arc};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
@@ -27,19 +30,25 @@ fn main() {
             let st = Arc::new(state::AppState::new(data_dir, version));
             app.manage(st.clone());
             let mut win = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title("GoodbyeAPP").inner_size(1240.0, 820.0).min_inner_size(920.0, 640.0).background_color(tauri::window::Color(255, 255, 255, 255))
+                .title("GoodbyeApp").inner_size(1240.0, 820.0).min_inner_size(920.0, 640.0).background_color(tauri::window::Color(255, 255, 255, 255))
                 // The page is the app's own bundle; anything else (links, redirects) stays out.
                 .on_navigation(|url| matches!(url.scheme(), "tauri" | "asset") || url.host_str() == Some("tauri.localhost"));
             // Windows keeps the app's own buttons (frameless); macOS gets its traffic lights and Linux the system's title bar.
             win = win.decorations(!cfg!(windows));
-            #[cfg(target_os = "macos")] { win = win.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true); }
+            #[cfg(debug_assertions)]
+            if std::env::var_os("GOODBYEAPP_SMOKE").is_some() {
+                use tauri::Listener;
+                app.listen("goodbyeapp:smoke", |event| log::log(&format!("smoke {}", event.payload())));
+                win = win.initialization_script(include_str!("../../tests/native-smoke.js"));
+            }
+            #[cfg(target_os = "macos")] { win = win.title_bar_style(tauri::TitleBarStyle::Overlay).hidden_title(true); let _ = menu::init(app.handle()); win = win.initialization_script(format!("window.systemLanguage = {:?};", i18n::system_language())); }
             // The title bar buttons use Tauri's window API (ui/tauri.ts); closing waits for the running operation.
             win.build()?.on_window_event(move |event| if let WindowEvent::CloseRequested { api, .. } = event { if st.busy.load(SeqCst) { api.prevent_close(); } });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             commands::load, commands::icons, commands::sizes, commands::scan, commands::uninstall, commands::clean, commands::clean_elevated, commands::backups, commands::drives,
-            commands::scan_files, commands::cancel_files, commands::reveal, commands::open, commands::language, commands::health_scan, commands::health_reveal, commands::health_clean,
+            commands::scan_files, commands::cancel_files, commands::reveal, commands::open, commands::virustotal, commands::web_search, commands::health_web_search, commands::health_virustotal,commands::language, commands::health_scan, commands::health_reveal, commands::health_files, commands::health_clean, commands::open_privacy,
             update::check_update, update::install_update,
         ])
         .build(tauri::generate_context!())

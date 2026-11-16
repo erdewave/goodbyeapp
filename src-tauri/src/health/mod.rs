@@ -74,6 +74,11 @@ pub fn scan_health() -> Vec<HealthItem> {
         if count > 0 { items.push(HealthItem { id: "recycle".into(), group: "system".into(), category: "recycle".into(), on: true, kind: "recycle".into(), path: t().recycle_bin.into(), label: Some((t().recycle_items)(count)), size: bytes, ..Default::default() }); }
         items.extend(registry::stale_items());
     }
+    // Readable only with Full Disk Access; without it the item is simply absent.
+    #[cfg(target_os = "macos")] {
+        let db = home().join("Library/Safari/History.db");
+        if let (Ok(meta), Ok(_)) = (fs::metadata(&db), fs::File::open(&db)) { items.push(HealthItem { id: "safari-history".into(), group: "Safari".into(), category: "history".into(), on: false, kind: "sql".into(), path: s(&db), size: meta.len(), ..Default::default() }); }
+    }
     items
 }
 // Progress for one item: `done` of `total` files; `ok` is set once the item has finished.
@@ -85,7 +90,10 @@ fn io_message(e: &std::io::Error) -> String {
 // Only the files this scan matched. Locked ones are normal and skipped; the item fails only when none could go.
 // Emptied subfolders are removed deepest first (remove_dir refuses non-empty ones); the rule's own folder stays.
 fn clean_one(item: &HealthItem, backup_dir: &Path, progress: &dyn Fn(Progress)) -> R<Option<String>> {
+    #[cfg(target_os = "macos")] if crate::platform::browser_running(&item.group) { return Err(t().in_use.into()); }
     match item.kind.as_str() {
+        // Safari keeps history as rows of History.db, as CCleaner's Safari cleaner deletes them; VACUUM gives the space back.
+        #[cfg(target_os = "macos")] "sql" => run("/usr/bin/sqlite3", &[&item.path, "DELETE FROM history_visits; DELETE FROM history_items; VACUUM;"]).map(|_| None),
         "files" => {
             let (mut failed, mut done, mut error, mut sent) = (0, 0, String::new(), Instant::now() - Duration::from_secs(1));
             for file in &item.files {

@@ -7,7 +7,7 @@ use std::{collections::{BTreeMap, HashMap}, path::MAIN_SEPARATOR};
 pub const SHARE: f64 = 1.0 / 4000.0;
 pub fn join(at: &str, name: &str) -> String { if at.ends_with(['\\', '/']) { format!("{at}{name}") } else { format!("{at}{MAIN_SEPARATOR}{name}") } }
 // Rolls each entry's own bytes up to the root, then keeps the entries worth at least SHARE of the whole disk.
-pub fn build_tree(parent: &[u32], name: &dyn Fn(usize) -> String, own: &[f64], root: usize, root_path: &str) -> TreeNode {
+pub fn build_tree(parent: &[u32], name: &dyn Fn(usize) -> String, is_file: &dyn Fn(usize) -> bool, own: &[f64], root: usize, root_path: &str) -> TreeNode {
     let n = parent.len();
     let mut total = vec![0f64; n];
     for i in 0..n {
@@ -31,15 +31,15 @@ pub fn build_tree(parent: &[u32], name: &dyn Fn(usize) -> String, own: &[f64], r
         for c in list { if rest < min { break; } keep(c, parent, &mut kept, &mut kids); rest -= total[c]; }
     }
     // Entries too small for a tile count toward their folder's remainder.
-    fn node(i: usize, at: &str, total: &[f64], kids: &mut HashMap<usize, Vec<usize>>, name: &dyn Fn(usize) -> String) -> TreeNode {
-        let Some(mut list) = kids.remove(&i) else { return TreeNode { id: at.into(), label: name(i), value: Some(total[i]), children: None } };
+    fn node(i: usize, at: &str, total: &[f64], kids: &mut HashMap<usize, Vec<usize>>, name: &dyn Fn(usize) -> String, is_file: &dyn Fn(usize) -> bool) -> TreeNode {
+        let Some(mut list) = kids.remove(&i) else { return TreeNode { id: at.into(), label: name(i), value: Some(total[i]), children: None, file: is_file(i) } };
         list.sort_by(|&a, &b| total[b].total_cmp(&total[a]));
         let rest = total[i] - list.iter().map(|&c| total[c]).sum::<f64>();
-        let mut children: Vec<TreeNode> = list.into_iter().map(|c| node(c, &join(at, &name(c)), total, kids, name)).collect();
-        if rest > 0.0 { children.push(TreeNode { id: format!("{at}\0"), label: String::new(), value: Some(rest), children: None }); }
-        TreeNode { id: at.into(), label: name(i), value: None, children: Some(children) }
+        let mut children: Vec<TreeNode> = list.into_iter().map(|c| node(c, &join(at, &name(c)), total, kids, name, is_file)).collect();
+        if rest > 0.0 { children.push(TreeNode { id: format!("{at}\0"), label: String::new(), value: Some(rest), children: None, file: false }); }
+        TreeNode { id: at.into(), label: name(i), value: None, children: Some(children), file: false }
     }
-    node(root, root_path, &total, &mut kids, name)
+    node(root, root_path, &total, &mut kids, name, is_file)
 }
 #[cfg(test)]
 mod tests {
@@ -50,10 +50,11 @@ mod tests {
         let parent = [0, 0, 1, 0];
         let names = ["", "dir", "a.bin", "tiny"];
         let root = if cfg!(windows) { "C:\\" } else { "/" };
-        let tree = build_tree(&parent, &|i| names[i].to_string(), &[0.0, 0.0, 1_000_000.0, 1.0], 0, root);
+        let tree = build_tree(&parent, &|i| names[i].to_string(), &|i| i >= 2, &[0.0, 0.0, 1_000_000.0, 1.0], 0, root);
         let kids = tree.children.unwrap();
         assert_eq!(kids[0].label, "dir");
         assert_eq!(kids[0].children.as_ref().unwrap()[0].id, join(&join(root, "dir"), "a.bin"));
         assert!(kids.last().unwrap().id.ends_with('\0'));
+        assert!(kids[0].children.as_ref().unwrap()[0].file && !kids[0].file);
     }
 }

@@ -10,7 +10,7 @@ use std::{fs, path::{Path, PathBuf}, sync::OnceLock};
 #[cfg(target_os = "macos")] pub use macos::*;
 #[cfg(target_os = "linux")] mod linux;
 #[cfg(target_os = "linux")] pub use linux::*;
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 pub async fn clean_elevated(_: &[Item], _: &AppRecord, _: &[AppRecord], _: &Path) -> R<Vec<CleanResult>> { Err(t().windows_only.into()) }
 #[cfg(not(windows))]
 pub fn restore_point(_: &str) -> R<&'static str> { Err(t().windows_only.into()) }
@@ -27,13 +27,19 @@ fn roots() -> Vec<PathBuf> {
         let menu = r"Microsoft\Windows\Start Menu\Programs";
         return [env("APPDATA"), env("LOCALAPPDATA"), env("PROGRAMDATA"), env("TEMP"), env("ProgramFiles"), env("ProgramFiles(x86)"), env("APPDATA").map(|p| p.join(menu)), env("PROGRAMDATA").map(|p| p.join(menu)), Some(home.join("Desktop")), env("PUBLIC").map(|p| p.join("Desktop"))].into_iter().flatten().collect();
     }
-    if cfg!(target_os = "macos") { return ["Application Support", "Caches", "Preferences", "Logs", "Saved Application State"].iter().map(|p| home.join("Library").join(p)).collect(); }
+    // macOS: the user's and the machine's Library folders where apps keep data, launchd jobs and helpers, plus pkg receipts.
+    if cfg!(target_os = "macos") {
+        let user = ["Application Support", "Caches", "Preferences", "Logs", "Saved Application State", "Containers", "Group Containers", "HTTPStorages", "WebKit", "Cookies", "Application Scripts", "LaunchAgents"].map(|p| home.join("Library").join(p));
+        let system = ["Application Support", "Caches", "Preferences", "Logs", "LaunchAgents", "LaunchDaemons", "PrivilegedHelperTools"].map(|p| Path::new("/Library").join(p));
+        return user.into_iter().chain(system).chain([PathBuf::from("/private/var/db/receipts")]).collect();
+    }
     vec![env("XDG_CONFIG_HOME").unwrap_or(home.join(".config")), env("XDG_CACHE_HOME").unwrap_or(home.join(".cache")), env("XDG_DATA_HOME").unwrap_or(home.join(".local/share")), home.join(".var/app")]
 }
 pub fn validate_path(root: &Path, target: &Path) -> R<fs::Metadata> {
     if !contained(root, target) || !target.parent().is_some_and(|p| same(p, root)) { return Err(t().outside_root.into()); }
     let meta = fs::symlink_metadata(target).ctx()?;
-    if meta.file_type().is_symlink() { return Err(t().symlink.into()); }
+    // macOS installers often link launchd plists into the app bundle; deleting such a link removes only the link.
+    if meta.file_type().is_symlink() { return if cfg!(target_os = "macos") && (root.ends_with("LaunchAgents") || root.ends_with("LaunchDaemons")) { Ok(meta) } else { Err(t().symlink.into()) }; }
     if !contained(&fs::canonicalize(root).ctx()?, &fs::canonicalize(target).ctx()?) { return Err(t().redirected.into()); }
     Ok(meta)
 }
@@ -72,6 +78,8 @@ pub fn scan(app: &AppRecord, others: &[AppRecord]) -> Vec<Item> {
         found.push(Item { id: id(&path), kind: Kind::File, size: size_of(&target, &mut 0), path, root: Some(s(root)) });
     };
     for root in scan_roots(app) { let mut seen = Vec::new(); for name in &names { if !seen.contains(&name) { seen.push(name); add_file(&root, root.join(name)); } } }
+    #[cfg(target_os = "macos")]
+    for (root, target) in owned_entries(app, others, &scan_roots(app)) { add_file(&root, target); }
     if let Some(dir) = app.install_dir.as_deref().filter(|d| !d.is_empty()).map(|d| resolve(Path::new(d))) {
         if install_dir_ok(&dir, others) { if let Some(parent) = dir.parent() { add_file(parent, dir.clone()); } }
     }

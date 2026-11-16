@@ -27,7 +27,7 @@ pub fn macos() -> Vec<Rule> {
         rs("Safari", "cache", true, fl![format!("{MC}/com.apple.Safari"), "~/Library/Containers/com.apple.Safari/Data/Library/Caches/com.apple.Safari,WebKit"], "*", "r", Some(r"(?i)[\\/]com\.apple\.Safari[\\/]Extensions[\\/]")),
         rm("Safari", "cookies", false, fl!["~/Library/Cookies", "~/Library/Containers/com.apple.Safari/Data/Library/Cookies"], "Cookies.binarycookies", ""),
     ]);
-    for (name, dir) in [("Google Chrome", "Google/Chrome"), ("Edge Chromium", "Microsoft Edge"), ("Brave", "BraveSoftware/Brave-Browser"), ("Vivaldi", "Vivaldi")] {
+    for (name, dir) in [("Google Chrome", "Google/Chrome"), ("Edge Chromium", "Microsoft Edge"), ("Brave", "BraveSoftware/Brave-Browser"), ("Vivaldi", "Vivaldi"), ("Chromium", "Chromium")] {
         v.extend(browser(name, &format!("{MA}/{dir}/*"), &format!("{MC}/{dir}/*"), &format!("{MA}/{dir}")));
     }
     v.extend(browser("Opera", &format!("{MA}/com.operasoftware.Opera"), &format!("{MC}/com.operasoftware.Opera"), &format!("{MA}/com.operasoftware.Opera")));
@@ -40,7 +40,7 @@ pub fn linux() -> Vec<Rule> {
         rs("system", "usercache", true, fl![XK], "*", "r", Some(USER_CACHE_SKIP)), r("system", "thumbs", true, fl![format!("{XK}/thumbnails")]),
         rm("system", "userlogs", true, fl!["~"], ".xsession-errors;.xsession-errors.old", ""), rm("system", "userlogs", true, fl!["~/.local/share/xorg"], "*.log", ""),
     ];
-    for (name, dir) in [("Google Chrome", "google-chrome"), ("Edge Chromium", "microsoft-edge"), ("Brave", "BraveSoftware/Brave-Browser"), ("Vivaldi", "vivaldi")] {
+    for (name, dir) in [("Google Chrome", "google-chrome"), ("Edge Chromium", "microsoft-edge"), ("Brave", "BraveSoftware/Brave-Browser"), ("Vivaldi", "vivaldi"), ("Chromium", "chromium")] {
         v.extend(browser(name, &format!("{XC}/{dir}/*"), &format!("{XK}/{dir}/*"), &format!("{XC}/{dir}")));
     }
     v.extend(browser("Opera", &format!("{XC}/opera"), &format!("{XK}/opera"), &format!("{XC}/opera")));
