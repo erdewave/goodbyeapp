@@ -1,9 +1,8 @@
-// Health Check file rules, after CCleaner 7. Groups and categories follow CCleaner's Custom Clean, and `on` copies each
-// rule's Default, so what CCleaner leaves unticked (Downloads, AI history, sign-in data…) starts unticked here.
+// Health Check file rules. `on` is each rule's default: personal data (Downloads, AI history, sign-in data…) starts unticked.
 // Folder pattern: %ENV%, ~, '*' and comma alternatives per segment; $L $R $W $P stand for %LOCALAPPDATA%, %APPDATA%,
 // %SystemRoot%, %PROGRAMDATA%. Masks match file by file. Flags: r = recursive, a / d = keep files touched in the last
-// hour / day, o = only files older than 14 days. Only plain file deletes are taken: CCleaner edits Web Data, Preferences
-// and Firefox's places.sqlite with SQL, so those stay untouched.
+// hour / day, o = only files older than 14 days. Only plain file deletes are taken: Web Data, Preferences
+// and Firefox's places.sqlite would need SQL edits, so those stay untouched.
 use regex::Regex;
 
 pub struct Rule { pub group: &'static str, pub category: &'static str, pub on: bool, pub folders: Vec<String>, pub masks: &'static str, pub flags: &'static str, pub skip: Option<Regex> }
@@ -21,13 +20,13 @@ pub fn browser(group: &'static str, data: &str, cache: &str, root: &str) -> Vec<
         rm(group, "history", true, fl![data], "History;History-journal;Archived History;Visited Links;Top Sites;Top Sites-journal;Shortcuts;Shortcuts-journal;Network Action Predictor;Network Action Predictor-journal;History Provider Cache", ""),
         r(group, "cache", true, fl![format!(r"{cache}\Cache,Code Cache,GPUCache,Media Cache,ShaderCache,GrShaderCache,GraphiteDawnCache,Application Cache,Shared Dictionary,Platform Notifications"), format!(r"{cache}\Service Worker\CacheStorage,ScriptCache"),
             format!(r"{cache}\Storage\ext\*\def\Cache,Code Cache,GPUCache,Media Cache,ShaderCache,Platform Notifications"), format!(r"{data}\EdgeCoupons\coupons_data.db"), format!(r"{root}\ShaderCache,GrShaderCache,GraphiteDawnCache,GPUPersistentCache,component_crx_cache")]),
-        // CCleaner also deletes *-journal here; a running browser's SQLite journal is not ours to remove, so only .tmp files go.
+        // A running browser's SQLite journal is not ours to remove, so only .tmp files go.
         rm(group, "cache", true, fl![root, data], "*.tmp", ""), rm(group, "cache", true, fl![format!(r"{data}\EdgePushStorageWithWinRt")], "*.log", ""),
         rm(group, "metrics", true, fl![format!(r"{root}\BrowserMetrics"), root], "*.pma", ""),
         rm(group, "session", false, fl![data], "Current Session;Last Session;Current Tabs;Last Tabs", ""), r(group, "session", false, fl![format!(r"{data}\Session Storage,Extension State,Sessions")]),
     ]
 }
-// Every User Data subfolder counts as a profile, as in CCleaner: System Profile and Guest Profile keep caches too.
+// Every User Data subfolder counts as a profile: System Profile and Guest Profile keep caches too.
 fn chromium(group: &'static str, dir: &str) -> Vec<Rule> { let data = format!(r"$L\{dir}\User Data\*"); browser(group, &data, &data, &format!(r"$L\{dir}\User Data")) }
 const DOWNLOADS: [(&str, &str); 5] = [("compressed", "*.zip;*.7z;*.rar;*.tar;*.pa;*.lzh;*.bh;*.cab;*.mar;*.sfx"), ("programs", "*.exe;*.msi;*.apk;*.jar"), ("images", "*.jpg;*.jpeg;*.gif;*.png;*.svg;*.tif;*.tiff;*.raw;*.bmp;*.psd;*.wmf;*.webp;*.arw;*.cr2;*.jfif"),
     ("media", "*.mp4;*.avi;*.mov;*.flv;*.avchd;*.m4v;*.mkv;*.3gp;*.m4a;*.mp3;*.wav;*.wma;*.aac;*.flac"), ("documents", "*.pdf;*.doc;*.docx;*.html;*.htm;*.xls;*.xlss;*.txt;*.ai;*.indd;*.xlsx;*.csv;*.ppt;*.pptx;*.rtf")];
@@ -94,18 +93,18 @@ pub fn windows() -> Vec<Rule> {
         r("ai", "hfcache", false, fl![format!(r"{HF}\assets"), format!(r"{HF}\hub\.locks"), format!(r"{HF}\xet"), "%HF_XET_CACHE%"]), rm("ai", "hfcache", false, fl![HF], ".agent_harnesses.json;.check_for_skill_update_done;.check_for_update_done", ""), rm("ai", "hfcache", false, fl![format!(r"{HF}\hub")], "CACHEDIR.TAG", ""),
         rs("ai", "copilotcli", false, fl![r"$L\copilot", r"~\.copilot\logs"], "*", "r", Some(r"(?i)\\copilot\\marketplaces\\")), r("ai", "jetbrainsai", false, fl![r"$R\JetBrains\*\aia-task-history", r"$L\JetBrains\*\ai-assistant-log-data", r"~\.junie\acp-prompt-attachments"]),
     ];
-    // Windows Downloads: the user's own files in Downloads, sorted by type; CCleaner leaves all of these unticked.
+    // Windows Downloads: the user's own files in Downloads, sorted by type; all of these start unticked.
     if !cfg!(target_os = "macos") {
         v.extend(DOWNLOADS.iter().map(|(category, masks)| rm(dl, category, false, fl![r"$U\Downloads"], masks, "r")));
         v.push(rs(dl, "others", false, fl![r"$U\Downloads"], "*", "r", Some(&typed)));
     }
     v.extend([
-        // CCleaner's IIS rule takes all of System32\LogFiles (firewall, WMI, live UAL databases too); only IIS's own logs are taken here.
+        // System32\LogFiles also holds firewall, WMI and live UAL databases; only IIS's own logs are taken here.
         rm("advanced", "prefetch", false, fl![r"$W\Prefetch"], "*.pf", "ro"), r("advanced", "iislogs", false, fl![r"$W\System32\LogFiles\W3SVC*,HTTPERR,FTPSVC*", r"%SystemDrive%\inetpub\logs\LogFiles"]),
         r("internet", "Java", false, fl![format!(r"{java}\cache"), format!(r"{java}\javaws\cache"), format!(r"{java}\tmp"), format!(r"{low}\cache")]), rs("internet", "Java", false, fl![format!(r"{java}\Log"), format!(r"{low}\Log"), r"$R\java\webview"], "*", "", Some(r"(?i)\\webview\\\.lock$")),
         rm("internet", "Java", false, fl![r"$W\System32", r"$W\SysWOW64"], "jupdate*.log", ""),
         rm("internet", "whatsapplog", false, wa(), "main-process.log.*", ""), rm("internet", "whatsapplog", false, wa_in("VideoDecodeStats"), "*", ""), rm("internet", "whatsappcache", false, wa_in(r"Cache,GPUCache"), "*", ""),
-        // CCleaner also strips Local Storage\leveldb down to its .ldb/.log files; a LevelDB without MANIFEST/CURRENT no longer opens, so that part is left out.
+        // Local Storage\leveldb is left whole: a LevelDB stripped of MANIFEST/CURRENT no longer opens.
         rm("internet", "whatsappstorage", false, wa_in("Session Storage"), "*", ""), r("internet", "whatsappstorage", false, wa_in(r"Service Worker\CacheStorage")),
         r("internet", "icloudcache", false, fl![format!(r"{IC}\LocalState\EBWebView\ShaderCache,GrShaderCache\GPUCache"), format!(r"{IC}\LocalState\EBWebView\Default\Cache\Cache_Data"), format!(r"{IC}\LocalState\EBWebView\SmartScreen\local")]), rm("internet", "icloudcache", false, fl![format!(r"{IC}\LocalState\EBWebView\Default\GPUCache")], "*", ""),
         r("internet", "icloudlogs", false, fl![format!(r"{IC}\LocalState\EBWebView\Default\AutofillStrikeDatabase,data_reduction_proxy_leveldb"), r"$R\Apple Computer\Logs,Logs-Old"]), rm("internet", "icloudlogs", false, fl![format!(r"{IC}\LocalCache\Local\Logs")], "*.log", ""),

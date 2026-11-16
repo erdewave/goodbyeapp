@@ -108,7 +108,7 @@ Aynı anda birden fazla kaldırma başlatabilirsiniz; işler sıraya alınır ve
 | macOS | `/Applications` ve `~/Applications` içindeki `.app` paketleri; önce servisleri durdurulur ve uygulama kapatılır, sonra çöp kutusuna taşınır | `~/Library` (Application Support, Caches, Preferences, Logs, Saved Application State, Containers, Group Containers, HTTPStorages, WebKit, Cookies, Application Scripts, LaunchAgents), `/Library` (Application Support, Caches, Preferences, Logs, LaunchAgents, LaunchDaemons, PrivilegedHelperTools) ve `.pkg` kayıtları |
 | Linux | Kullanıcı ve sistem Flatpak uygulamaları | XDG config, cache, data ve `~/.var/app` |
 
-Uygulama Windows üzerinde geliştirilip test edilir. macOS sürümü macOS 15 üzerinde gerçek bir uygulama (CCleaner) kaldırılarak denenmiştir: 18 kalıntının tamamı bulunup temizlendi. Linux paketi her sürümde otomatik olarak derlenip açılış testinden geçer.
+Uygulama Windows üzerinde geliştirilip test edilir. macOS sürümü macOS 15 üzerinde gerçek uygulamalar kaldırılarak test edilir. Linux paketi her sürümde otomatik olarak derlenip açılış testinden geçer.
 
 Desteklenmeyenler: Microsoft Store uygulamaları, apt / rpm / Snap paketleri, servisler, sürücüler ve paylaşılan çalışma zamanları.
 

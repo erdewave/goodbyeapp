@@ -14,11 +14,11 @@ import { rise as riseMotion, collapse as collapseMotion, chevron } from './motio
 import type { HealthItem } from './types';
 
 const api = window.goodbyeapp;
-// CCleaner's Custom Clean order: its own groups, then one group per browser, then the registry scan. Browser groups use the globe.
+// Group order: system and app groups, then one group per browser, then the registry scan. Browser groups use the globe.
 const order = ['windows', 'system', 'apps', 'media', 'utils', 'winstore', 'ai', 'downloads', 'userdownloads', 'advanced', 'internet', 'Google Chrome', 'Edge Chromium', 'Firefox', 'Safari', 'Brave', 'Opera', 'Vivaldi', 'Internet Explorer', 'registry'];
 const icons: Record<string, typeof Globe> = { windows: LayoutGrid, system: Monitor, apps: AppWindow, media: Clapperboard, utils: Wrench, winstore: ShoppingBag, ai: MessageSquare, downloads: Download, userdownloads: Download, advanced: SlidersHorizontal, registry: ListX };
 const labels = (map: Record<string, string>, key: string) => map[key] ?? key;
-// On a Mac, categories carry CCleaner for Mac's own names (its browser cleaner says Caches / Browsing history).
+// On a Mac, browser categories use the Mac wording (Caches / Browsing history).
 const onMac = navigator.userAgent.includes('Macintosh');
 // CSS uppercase follows the page language, so Turkish turns "Windows" into "WİNDOWS"; product names keep English casing.
 const BRANDS = /^(windows|store|google|chrome|edge|chromium|firefox|safari|brave|opera|vivaldi|internet|explorer|xcode)$/i;
@@ -49,13 +49,13 @@ function FileWindow({ files, count, label, render }: { files?: [string, number][
 export const beamTheme = () => document.documentElement.classList.contains('dark') ? 'dark' : 'light';
 const bytes = (list: HealthItem[]) => list.reduce((s, i) => s + i.size, 0);
 const entries = (list: HealthItem[]) => list.reduce((s, i) => s + (i.count || 1), 0);
-// Long paths keep their tail, like CCleaner's detail list.
+// Long paths keep their tail, where the file name is.
 const short = (p: string) => { const parts = p.split('\\'); return parts.length > 4 ? '…\\' + parts.slice(-3).join('\\') : p; };
 function Bar({ value }: { value: number }) {
   // scaleX, not width: the fill stays on the compositor while rows are being deleted.
   return <span role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(value * 100)} className="mt-1.5 block h-1 overflow-hidden rounded-full bg-muted"><motion.i className="block h-full origin-left rounded-full bg-primary" initial={{ transform: 'scaleX(0)' }} animate={{ transform: `scaleX(${value})` }} transition={{ duration: 0.2, ease: EASE_OUT }}/></span>;
 }
-// Health Check tab, after CCleaner 7: one summary, then a table of categories that open into their locations.
+// Health Check tab: one summary, then a table of categories that open into their locations.
 // Cookies start unticked (cleaning signs you out of sites).
 // While an app is being uninstalled the scan waits: its app-wide lock would freeze that app's leftover picker.
 export function HealthCheck({ size, serial, busy, setBusy, toast, uninstalling, onScan, onVirusTotal, diskAccess }: { diskAccess: boolean; size: (n: number) => string; serial: <T>(fn: () => Promise<T>) => Promise<T>; busy: boolean; setBusy: (on: boolean) => void; toast: (input: ToastInput) => unknown; uninstalling: boolean; onScan: (on: boolean) => void; onVirusTotal: (id: string, file?: string) => void }) {
@@ -134,7 +134,7 @@ export function HealthCheck({ size, serial, busy, setBusy, toast, uninstalling, 
     {[...new Set([...order, ...all.map(i => i.group)])].map(group => {
       const inGroup = all.filter(i => i.group === group), GroupIcon = icons[group] ?? Globe;
       const rows = [...new Set(inGroup.map(i => i.category))].map(category => ({ category, key: group + '/' + category, list: inGroup.filter(i => i.category === category) })).sort((a, b) => bytes(b.list) - bytes(a.list) || entries(b.list) - entries(a.list));
-      // A group with nothing left to clean is not shown at all; groups start closed, like CCleaner's results.
+      // A group with nothing left to clean is not shown at all; groups start closed.
       const gkey = 'group:' + group, gopen = open.includes(gkey), gname = labels(t.health.groups, group), grunning = inGroup.filter(i => i.id in progress);
       return rows.length > 0 && <motion.section key={group} data-group={group} {...rise(shown++)}>
         <div className={`${grid} cursor-pointer rounded-xl py-2.5 hover:bg-foreground/[0.03]`} onClick={() => toggle(gkey)}>
